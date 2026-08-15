@@ -10,3 +10,4 @@
 docker compose \
   -f /mnt/e/docker/<REPLACE:project-persona>/docker-compose.yml \
   run --rm claude-<REPLACE:project-persona>
+#  --dangerously-skip-permissions  # ONLY ENABLE THIS OPTION WHEN SANDBOXING HAS BEEN SETUP, TESTED, AND PERSONA SCOPE FOR THE CONTAINER IS LIMITED AND APPROVED
