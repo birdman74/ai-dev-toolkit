@@ -217,26 +217,114 @@ GitHub Actions workflow (`ci.yml`) validates repo structure, checks `.env` is no
 
 ---
 
-## Parking Lot — Future Experiments
+## Phase 5: TDD-First Workflow and GitHub Actions Orchestration
+**~2026-08**
 
-### GitHub Actions as Persona Orchestrator (Option B)
-**Goal**: When PO commits a new spec to `docs/specs/`, automatically trigger Dev. When Dev opens a PR, automatically trigger Test. Eliminates manual persona launching for routine workflow steps.
-**Approach**: Self-hosted GitHub Actions runner on local machine or EC2. Workflow triggers on `push` to `docs/specs/**` path or `pull_request` opened event.
-**Status**: Parked. Implement after STORY-001 is fully merged.
+### TDD-First Workflow Design
+The original workflow had Dev implementing first and Test verifying afterward. This was redesigned to true TDD:
 
-### TDD/DDD Workflow Change
-**Goal**: Flip current Dev-then-Test order to Test-then-Dev (true TDD). Test writes failing tests against the spec before Dev implements. DDD would have PO define ubiquitous domain language in epics that Dev uses for entity/aggregate naming.
-**Approach**: Update Dev and Test persona CLAUDE.md files. No infrastructure changes needed.
-**Status**: Parked. Implement as a story in the Autonomous Agentic Workflow epic.
+**New order:**
+1. Test goes first — reads the PO story and writes the test plan, API contracts, and failing tests before any implementation exists
+2. Test and Dev iterate on the design (up to 3 rounds) before Dev writes a single line of code
+3. Dev implements against the agreed design until all of Test's failing tests pass
+4. Test performs final verification including regression analysis
+5. Brian reviews and merges
+
+**Key insight**: Test writing contracts before implementation forces explicit API design decisions upfront, surfaces ambiguities before they become bugs, and makes the acceptance criteria machine-verifiable from day one.
+
+### Test Persona: Cross-Story Invariant Testing
+Test's CLAUDE.md was updated to explicitly instruct it to identify cross-story invariants during Phase 1 — not just acceptance criteria for the current story. When a story touches shared infrastructure (schema, security config, shared services), Test must write invariant tests that protect existing behavior across story boundaries.
+
+**What triggered this**: PR #4 (STORY-002) introduced a nullable `password_hash` column in the schema migration. No test asserted that non-OAuth accounts must have a non-null password hash. The invariant was caught in Brian's PR review rather than by Test — a gap in Test's scope that the updated CLAUDE.md now explicitly covers.
+
+### Test Persona: Regression Analysis During PR Review
+Test's Phase 3 (final PR review) was updated to include explicit diff analysis. Test must:
+1. Run the full existing test suite
+2. Read the diff and identify shared infrastructure changes
+3. Write targeted regression tests for any shared infrastructure changes before posting the summary
+
+This gives two layers of regression protection: mechanical (full suite) and reasoned (diff analysis).
+
+### PR Feedback Loop: Changes Requested Routing
+A new `trigger-on-changes-requested.yml` workflow handles the feedback loop after PR review. It fires on `pull_request_review` submitted with `changes_requested` state and routes based on the reviewer's identity:
+
+- `birdman74` submits Changes Requested → wakes Test (Phase 4: write failing tests, push, submit Changes Requested to trigger Dev)
+- `briankcampbell-streamvault-bot` submits Changes Requested → wakes Dev (Phase 3 fix: pull branch, fix until all tests pass, push)
+
+This means Brian never needs to manually launch a persona after posting review feedback — the chain continues automatically.
+
+**Key design decision**: Test submits a formal `gh pr review --request-changes` (not just a comment) after writing failing tests. This is what triggers Dev. Informal comments are not sufficient to fire the workflow.
+
+### CODEOWNERS File
+`.github/CODEOWNERS` added with `* @birdman74`. Combined with the branch ruleset requiring CODEOWNER approval, this ensures that even if Test approves the PR as the bot account, the PR cannot merge without Brian's explicit approval. Test approval and Brian approval are independent requirements.
+
+### GitHub Actions as Persona Orchestrator
+A self-hosted GitHub Actions runner installed on the local WSL2 machine replaces manual persona launching for the routine workflow steps. The runner listens for events from GitHub and executes the appropriate launcher script.
+
+**Six trigger workflows:**
+- `trigger-test-on-spec.yml` — PO spec committed to main → wakes Test
+- `trigger-dev-review.yml` — Test commits test plan or revision → wakes Dev for design review; escalates to GitHub Issue after 3 rounds
+- `trigger-test-revision.yml` — Dev commits feedback → wakes Test to revise
+- `trigger-dev-implement.yml` — Dev commits agreed.md → wakes Dev to implement
+- `trigger-test-final-review.yml` — Bot opens PR → wakes Test for final verification
+- `trigger-on-changes-requested.yml` — Changes Requested review submitted → routes to Test or Dev based on reviewer identity
+
+Every trigger also supports `workflow_dispatch` for manual override from the GitHub Actions tab with explicit input parameters.
+
+### `jq` for JSON Parsing in Workflows
+Initial workflow implementation used `git diff-tree` to identify changed files. This failed repeatedly:
+- Shallow clones (Actions default) — parent commit not available
+- Merge commits — two parents, ambiguous diff
+- The `fetch-depth: 2` fix helped shallow clones but not merge commits
+
+Replaced with `jq` parsing of `github.event.commits` payload — the JSON GitHub already computes and provides. This approach has no git history dependency and handles all commit types correctly. `jq` was not pre-installed on the self-hosted runner; installed via `sudo apt install -y jq`.
+
+**Lesson**: Always test CI commands locally against synthetic payloads before deploying. The `jq` command was verified locally with a sample JSON payload before any workflow files were updated.
+
+### workflow_dispatch Added to All Triggers
+All six trigger workflows support manual dispatch from the GitHub Actions tab. This was added after repeated situations where:
+- A push fired a trigger before the workflow files were fixed
+- A container exited before completing its work
+- A merge commit prevented automatic re-triggering
+
+Without `workflow_dispatch`, the only recovery option was running the auto launcher scripts manually from the terminal. With it, recovery is a few clicks in the GitHub UI with the correct context pre-filled.
+
+### Agentic Workflow Diagram
+A Mermaid flowchart (`docs/agentic-workflow-diagram.md`) documents the complete automation chain including all triggers, loops, escalation paths, and the Changes Requested routing. GitHub renders Mermaid natively — anyone viewing the repo sees a proper visual diagram, not ASCII art.
+
+### File and Branch Naming Convention (Lessons Learned)
+**Case sensitivity caused multiple trigger failures.** GitHub Actions path filters on Linux are case-sensitive. Early workflow files used uppercase `STORY-*` in path filters while actual filenames used lowercase `story-*`. Fixed by standardizing everything to lowercase:
+- Branch names: `feature/story-NNN-short-kebab-case-description`
+- Spec files: `docs/specs/story-NNN-*.md`
+- Design artifacts: `docs/specs/design/story-NNN-*.md`
+- Commit message prefixes: `test(story-NNN):`, `feat(story-NNN):`, `docs(story-NNN):`
+
+**Lesson**: Establish and document naming conventions before writing any trigger path filters. Changing conventions after triggers are in place requires updating multiple files simultaneously.
+
+### Feature Branch Hygiene
+Merging `main` into a feature branch after workflow file fixes is a required step before re-triggering any automated workflow. Without this, the persona container runs with the old broken CLAUDE.md or workflow definitions even though main has the fixes. Established pattern: always `git merge main` on the feature branch after any main-branch updates that affect persona behavior.
+
+---
+
+## Updated Parking Lot
 
 ### Tailscale Private Network
-**Goal**: Connect local machine to EC2 via private network so cloud-deployed app can reach local Ollama (when unblocked) without public internet exposure.
+**Goal**: Connect local machine to EC2 via private network so cloud-deployed app can reach local Ollama without public internet exposure.
 **Status**: Parked. Revisit when Ollama is unblocked.
 
 ### Ollama Local Inference
 **Goal**: Free unlimited local inference during development.
 **Blocker**: AMD RX 7600 XT + WSL2 Docker + DirectML not supported by Ollama image. CPU-only too slow.
 **Trigger to revisit**: Claude Pro API costs become a concern.
+
+### DDD Workflow
+**Goal**: PO defines ubiquitous domain language in epics that Dev uses for entity/aggregate naming.
+**Status**: Parked. TDD was implemented first. DDD can be layered on top by updating PO's CLAUDE.md to include a domain language section in epics.
+
+### Testcontainers / Docker-in-Docker for Test Persona
+**Goal**: Allow Test to run integration tests against real PostgreSQL and MongoDB instances inside the container.
+**Blocker**: Mounting the host Docker socket gives the container significant host access — security tradeoff needs careful evaluation.
+**Status**: Parked in backlog.
 
 ---
 
