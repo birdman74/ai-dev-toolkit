@@ -304,6 +304,27 @@ A Mermaid flowchart (`docs/agentic-workflow-diagram.md`) documents the complete 
 ### Feature Branch Hygiene
 Merging `main` into a feature branch after workflow file fixes is a required step before re-triggering any automated workflow. Without this, the persona container runs with the old broken CLAUDE.md or workflow definitions even though main has the fixes. Established pattern: always `git merge main` on the feature branch after any main-branch updates that affect persona behavior.
 
+### PR Self-Review Limitation and Fix
+**~2026-08-29**
+
+**Problem discovered**: GitHub prevents the PR author from submitting a formal review on their own PR. Since both Dev and Test personas use the same bot account (`briankcampbell-streamvault-bot`) and Dev opens the PR, Test cannot submit `gh pr review --request-changes` to trigger Dev in the feedback loop.
+
+**Original design flaw**: `trigger-on-changes-requested.yml` routed to Dev when the bot submitted a Changes Requested review. This was architecturally correct but technically impossible given the single bot account constraint.
+
+**Fix**: Replace the review-based trigger for Dev with a push-based trigger (`trigger-dev-on-test-commit.yml`). When Test pushes new failing tests to `src/test/**`:
+
+1. The workflow checks that the commit author is `claude-streamvault-test` (distinguishes Test commits from Dev commits)
+2. The workflow checks via the GitHub API that the PR is currently in `changes_requested` state (distinguishes Phase 4 feedback loop from Phase 1 initial tests and Phase 3 regression tests — both of which also push to `src/test/**`)
+3. If both conditions are true, Dev is woken to fix the implementation
+
+**Why this works**: Phase 1 test commits happen before any PR exists. Phase 3 regression test commits happen while the PR is in a neutral state (no pending changes_requested reviews). Only Phase 4 feedback loop commits happen while the PR has an active changes_requested review. The state check cleanly differentiates all three cases without any commit message parsing.
+
+**Updated files**:
+- `trigger-on-changes-requested.yml` — removed bot-to-Dev routing; now only handles Brian-to-Test routing; updated Test's prompt to explicitly NOT use `gh pr review`
+- `trigger-dev-on-test-commit.yml` — new workflow handling the push-based Dev trigger
+- Test's CLAUDE.md Phase 4 — removed `gh pr review --request-changes` instruction; pushing failing tests is now the trigger mechanism
+- `agentic-workflow-diagram.md` — updated to show the new trigger and explain the self-review limitation
+
 ---
 
 ## Updated Parking Lot

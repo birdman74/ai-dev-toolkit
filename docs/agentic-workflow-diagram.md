@@ -29,13 +29,13 @@ flowchart TD
     T5["🔔 trigger-test-final-review.yml\nPR opened targeting main\nactor: bot only"]
     TEST_P3["🧪 TEST — Phase 3 Final Review\nRun full suite\nDiff analysis + regression tests\nPost PR comment\ngh pr review --approve\nor --request-changes"]
 
-    T6["🔔 trigger-on-changes-requested.yml\nPR review: changes_requested"]
+    T6["🔔 trigger-on-changes-requested.yml\nPR review: changes_requested\nreviewer: birdman74 only"]
+    TEST_P4["🧪 TEST — Phase 4\nRead Brian's comments\nWrite failing tests\nCommit + push\n⚠️ Push is the trigger — no gh pr review"]
 
-    TEST_P4["🧪 TEST — Phase 4\nRead Brian's comments\nWrite failing tests\nCommit + push\ngh pr review --request-changes"]
+    T7["🔔 trigger-dev-on-test-commit.yml\npush to feature/story-*\npath: src/test/**\nauthor: claude-streamvault-test\nPR must have changes_requested"]
+    DEV_P3["⚙️ DEV — Phase 3 Fix\nRead new failing tests\nFix until all tests pass\nmvn clean verify\nCommit + push\nNo new PR"]
 
-    DEV_P3["⚙️ DEV — Phase 3 Fix\nRead Test's review\nFix until all tests pass\nmvn clean verify\nCommit + push\nNo new PR"]
-
-    MERGE["✅ Brian reviews\nBrian approves\nBrian merges to main"]
+    MERGE["✅ Brian reviews\nBrian approves as CODEOWNER\nBrian merges to main"]
 
     BRIAN --> PO_COMMIT
     PO_COMMIT --> T1
@@ -51,12 +51,12 @@ flowchart TD
     DEV_IMPL --> T5
     T5 --> TEST_P3
     TEST_P3 -->|"approves"| MERGE
-    TEST_P3 -->|"requests changes\nreviewer: bot"| T6
-    T6 -->|"reviewer: bot → wakes Dev"| DEV_P3
+    TEST_P3 -->|"requests changes"| T6
+    BRIAN -->|"requests changes"| T6
+    T6 --> TEST_P4
+    TEST_P4 -->|"pushes failing tests\nauthor: claude-streamvault-test\nPR in changes_requested"| T7
+    T7 --> DEV_P3
     DEV_P3 --> T5
-    T6 -->|"reviewer: birdman74 → wakes Test"| TEST_P4
-    TEST_P4 -->|"requests changes\nreviewer: bot"| T6
-    BRIAN -->|"requests changes\nreviewer: birdman74"| T6
 
     style BRIAN fill:#4A90D9,color:#fff
     style ESCALATION fill:#E84545,color:#fff
@@ -67,6 +67,7 @@ flowchart TD
     style T4 fill:#F39C12,color:#fff
     style T5 fill:#F39C12,color:#fff
     style T6 fill:#F39C12,color:#fff
+    style T7 fill:#F39C12,color:#fff
     style TEST_P1 fill:#8E44AD,color:#fff
     style TEST_P2 fill:#8E44AD,color:#fff
     style TEST_P3 fill:#8E44AD,color:#fff
@@ -81,14 +82,25 @@ flowchart TD
 
 ## Trigger Summary Table
 
-| Trigger File | Event | Path Filter | Actor Filter | Wakes |
+| Trigger File | Event | Path / Condition Filter | Actor / Author Filter | Wakes |
 |---|---|---|---|---|
 | `trigger-test-on-spec.yml` | push to `main` | `docs/specs/story-*.md` | `birdman74` or bot | Test Phase 1 |
 | `trigger-dev-review.yml` | push to `feature/story-*` | `story-*-test-plan.md` or `story-*-test-revision-r*.md` | `birdman74` or bot | Dev design review |
 | `trigger-test-revision.yml` | push to `feature/story-*` | `story-*-dev-feedback-r*.md` | `birdman74` or bot | Test Phase 2 revision |
 | `trigger-dev-implement.yml` | push to `feature/story-*` | `story-*-agreed.md` | `birdman74` or bot | Dev Phase 2 implementation |
 | `trigger-test-final-review.yml` | PR opened/reopened targeting `main` | — | bot only | Test Phase 3 final review |
-| `trigger-on-changes-requested.yml` | PR review `changes_requested` | — | `birdman74` → Test; bot → Dev | Test Phase 4 or Dev Phase 3 fix |
+| `trigger-on-changes-requested.yml` | PR review `changes_requested` | — | `birdman74` only | Test Phase 4 |
+| `trigger-dev-on-test-commit.yml` | push to `feature/story-*` | `src/test/**` + PR in `changes_requested` + commit author is `claude-streamvault-test` | bot | Dev Phase 3 fix |
+
+---
+
+## Why Not Use gh pr review to Trigger Dev?
+
+GitHub prevents the PR author from reviewing their own PR. Since both Dev and Test use the same bot account (`briankcampbell-streamvault-bot`) and Dev opens the PR, Test cannot submit a formal review on that PR. The solution is to use the commit push as the trigger instead:
+
+- Test pushes new failing test files to the feature branch
+- `trigger-dev-on-test-commit.yml` checks that the commit author is `claude-streamvault-test` AND the PR is currently in `changes_requested` state
+- This distinguishes Phase 4 feedback loop commits from Phase 1 and Phase 3 test commits (which also push to `src/test/**` but the PR is not in `changes_requested` state at those points)
 
 ---
 
