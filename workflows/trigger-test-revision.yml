@@ -1,0 +1,60 @@
+# trigger-test-revision.yml
+# Triggers Test persona to revise design after Dev feedback.
+# Replace all <REPLACE:...> placeholders before use.
+
+name: Trigger Test — Dev Feedback Requires Revision
+
+on:
+  push:
+    branches: ['feature/story-*']
+    paths:
+      - 'docs/specs/design/story-*-dev-feedback-r*.md'
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: 'Story ID (e.g. story-002)'
+        required: true
+      feature_branch:
+        description: 'Feature branch name'
+        required: true
+      revision_round:
+        description: 'Revision round number'
+        required: true
+        default: '1'
+
+jobs:
+  trigger-test-revision:
+    runs-on: self-hosted
+    if: github.actor == '<REPLACE:your-github-username>' || github.actor == '<REPLACE:bot-github-username>'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Identify story and round
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            STORY_ID="${{ github.event.inputs.story_id }}"
+            BRANCH="${{ github.event.inputs.feature_branch }}"
+            ROUND="${{ github.event.inputs.revision_round }}"
+          else
+            CHANGED=$(echo '${{ toJson(github.event.commits) }}' | \
+              jq -r '.[].modified[], .[].added[] | select(test("docs/specs/design/story-[0-9]+-.*\\.md"))' 2>/dev/null | head -1)
+            STORY_ID=$(echo "$CHANGED" | grep -oP 'story-\d+')
+            ROUND=$(echo "$CHANGED" | grep -oP '(?<=r)\d+')
+            BRANCH="${{ github.ref_name }}"
+          fi
+          echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
+          echo "round=$ROUND" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Launch Test persona for revision
+        env:
+          STORY_ID: ${{ steps.context.outputs.story_id }}
+          REVISION_ROUND: ${{ steps.context.outputs.round }}
+          FEATURE_BRANCH: ${{ steps.context.outputs.branch }}
+        run: |
+          /home/<REPLACE:username>/bin/<REPLACE:project>-test-auto.sh "Dev has committed feedback for $STORY_ID on $FEATURE_BRANCH. This is revision round $REVISION_ROUND. Execute your revision phase per your CLAUDE.md and push to origin/$FEATURE_BRANCH."

@@ -1,0 +1,92 @@
+# trigger-dev-review.yml
+# Triggers Dev persona to review Test's design plan or revision.
+# Handles iteration limit escalation via GitHub Issue.
+# Replace all <REPLACE:...> placeholders before use.
+
+name: Trigger Dev — Test Plan Ready for Review
+
+on:
+  push:
+    branches: ['feature/story-*']
+    paths:
+      - 'docs/specs/design/story-*-test-plan.md'
+      - 'docs/specs/design/story-*-test-revision-r*.md'
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: 'Story ID (e.g. story-002)'
+        required: true
+      feature_branch:
+        description: 'Feature branch name'
+        required: true
+      review_round:
+        description: 'Review round number (1, 2, or 3)'
+        required: true
+        default: '1'
+
+jobs:
+  trigger-dev-review:
+    runs-on: self-hosted
+    if: github.actor == '<REPLACE:your-github-username>' || github.actor == '<REPLACE:bot-github-username>'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Identify story and round
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            STORY_ID="${{ github.event.inputs.story_id }}"
+            BRANCH="${{ github.event.inputs.feature_branch }}"
+            ROUND="${{ github.event.inputs.review_round }}"
+          else
+            CHANGED=$(echo '${{ toJson(github.event.commits) }}' | \
+              jq -r '.[].modified[], .[].added[] | select(test("docs/specs/design/story-[0-9]+-.*\\.md"))' 2>/dev/null | head -1)
+            STORY_ID=$(echo "$CHANGED" | grep -oP 'story-\d+')
+            BRANCH="${{ github.ref_name }}"
+            ROUND=1
+            for i in 1 2 3; do
+              if [ -f "docs/specs/design/${STORY_ID}-dev-feedback-r${i}.md" ]; then
+                ROUND=$((i + 1))
+              fi
+            done
+          fi
+          echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
+          echo "round=$ROUND" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Check iteration limit
+        id: limit_check
+        run: |
+          if [ "${{ steps.context.outputs.round }}" -gt 3 ]; then
+            echo "limit_reached=true" >> $GITHUB_OUTPUT
+          else
+            echo "limit_reached=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Open escalation issue if limit reached
+        if: steps.limit_check.outputs.limit_reached == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const storyId = '${{ steps.context.outputs.story_id }}';
+            const branch = '${{ steps.context.outputs.branch }}';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠️ ${storyId}: Design iteration limit reached — review required`,
+              body: `Test and Dev have completed 3 rounds without agreement on **${storyId}**.\n\nBranch: \`${branch}\`\nArtifacts: \`docs/specs/design/${storyId}-*\`\n\nManually commit \`${storyId}-agreed.md\` to unblock.`,
+              labels: ['needs-review', 'blocked']
+            });
+
+      - name: Launch Dev persona for review
+        if: steps.limit_check.outputs.limit_reached == 'false'
+        env:
+          STORY_ID: ${{ steps.context.outputs.story_id }}
+          REVIEW_ROUND: ${{ steps.context.outputs.round }}
+          FEATURE_BRANCH: ${{ steps.context.outputs.branch }}
+        run: |
+          /home/<REPLACE:username>/bin/<REPLACE:project>-dev-auto.sh "Test has committed a design artifact to $FEATURE_BRANCH for $STORY_ID. This is review round $REVIEW_ROUND. Execute your design review phase per your CLAUDE.md and commit your response, then push to origin/$FEATURE_BRANCH."

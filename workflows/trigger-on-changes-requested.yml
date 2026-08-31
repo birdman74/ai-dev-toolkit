@@ -1,0 +1,68 @@
+# trigger-on-changes-requested.yml
+# Routes Changes Requested reviews to the correct persona.
+# Brian's review wakes Test. Bot review (from Test) is handled by trigger-dev-on-test-commit.yml.
+# Replace all <REPLACE:...> placeholders before use.
+
+name: Trigger Persona — PR Changes Requested
+
+on:
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+    inputs:
+      reviewer:
+        description: 'Reviewer username'
+        required: true
+      story_id:
+        description: 'Story ID (e.g. story-002)'
+        required: true
+      feature_branch:
+        description: 'Feature branch name'
+        required: true
+      pr_number:
+        description: 'Pull request number'
+        required: true
+
+jobs:
+  route-changes-requested:
+    runs-on: self-hosted
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.review.state == 'changes_requested'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Identify reviewer and context
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            REVIEWER="${{ github.event.inputs.reviewer }}"
+            STORY_ID="${{ github.event.inputs.story_id }}"
+            BRANCH="${{ github.event.inputs.feature_branch }}"
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          else
+            REVIEWER="${{ github.event.review.user.login }}"
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+            STORY_ID=$(echo "$BRANCH" | grep -oP 'story-\d+')
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+          echo "reviewer=$REVIEWER" >> $GITHUB_OUTPUT
+          echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Trigger Test (human requested changes)
+        if: steps.context.outputs.reviewer == '<REPLACE:your-github-username>'
+        env:
+          STORY_ID: ${{ steps.context.outputs.story_id }}
+          FEATURE_BRANCH: ${{ steps.context.outputs.branch }}
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+        run: |
+          /home/<REPLACE:username>/bin/<REPLACE:project>-test-auto.sh "The human reviewer has posted a Changes Requested review on PR #$PR_NUMBER for $STORY_ID on $FEATURE_BRANCH. Execute Phase 4 of your workflow per your CLAUDE.md: write failing tests covering the gap, commit, and push. Do NOT attempt gh pr review — pushing tests is the trigger for Dev."
+
+      - name: Skip bot reviewer
+        if: steps.context.outputs.reviewer == '<REPLACE:bot-github-username>'
+        run: |
+          echo "Bot reviewer detected — Dev will be triggered by test commit push. No action needed."

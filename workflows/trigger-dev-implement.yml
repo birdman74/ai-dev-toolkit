@@ -1,0 +1,52 @@
+# trigger-dev-implement.yml
+# Triggers Dev persona to begin implementation after design agreement.
+# Replace all <REPLACE:...> placeholders before use.
+
+name: Trigger Dev — Agreed Design, Begin Implementation
+
+on:
+  push:
+    branches: ['feature/story-*']
+    paths:
+      - 'docs/specs/design/story-*-agreed.md'
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: 'Story ID (e.g. story-002)'
+        required: true
+      feature_branch:
+        description: 'Feature branch name'
+        required: true
+
+jobs:
+  trigger-dev-implement:
+    runs-on: self-hosted
+    if: github.actor == '<REPLACE:your-github-username>' || github.actor == '<REPLACE:bot-github-username>'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Identify story
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            STORY_ID="${{ github.event.inputs.story_id }}"
+            BRANCH="${{ github.event.inputs.feature_branch }}"
+          else
+            CHANGED=$(echo '${{ toJson(github.event.commits) }}' | \
+              jq -r '.[].modified[], .[].added[] | select(test("docs/specs/design/story-[0-9]+-.*\\.md"))' 2>/dev/null | head -1)
+            STORY_ID=$(echo "$CHANGED" | grep -oP 'story-\d+')
+            BRANCH="${{ github.ref_name }}"
+          fi
+          echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Launch Dev persona for implementation
+        env:
+          STORY_ID: ${{ steps.context.outputs.story_id }}
+          FEATURE_BRANCH: ${{ steps.context.outputs.branch }}
+        run: |
+          /home/<REPLACE:username>/bin/<REPLACE:project>-dev-auto.sh "Design agreement reached for $STORY_ID on $FEATURE_BRANCH. Execute your implementation phase per your CLAUDE.md: write failing unit tests first, implement until all tests pass, commit, push, then open a PR."
