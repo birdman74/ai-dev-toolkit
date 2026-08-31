@@ -22,6 +22,7 @@ ai-dev-toolkit/
 |- dockerfiles/
 |    |- claude-code/            # Base image (PO persona — lightweight)
 |    |- claude-code-dev/        # Dev/Test image (adds Java 25, Maven, gh CLI)
+|    |- claude-po/              # PO image (adds gh CLI)
 |- personas/
 |    |- templates/
 |         |- po/CLAUDE.md       # PO persona system prompt template
@@ -73,13 +74,14 @@ Every trigger supports `workflow_dispatch` for manual override from the GitHub A
 
 | Image | Dockerfile | Purpose |
 |---|---|---|
-| `claude-experience-img` | `dockerfiles/claude-code/Dockerfile` | PO persona — Claude Code + git only |
-| `claude-dev-img` | `dockerfiles/claude-code-dev/Dockerfile` | Dev/Test personas — adds Java 25, Maven, gh CLI |
+| `claude-base-img` | `dockerfiles/claude-base/Dockerfile` | Base image - Claude Code + git only |
+| `claude-po-img` | `dockerfiles/claude-po/Dockerfile` | PO persona - Claude Code + git + gh CLI |
+| `claude-dev-img` | `dockerfiles/claude-code-dev/Dockerfile` | Dev/Test personas - adds Java 25, Maven, gh CLI |
 
 Build the images:
 ```bash
-# Base image (PO)
-docker build -t claude-experience-img ./dockerfiles/claude-code
+# PO image
+docker build -t claude-po-img ./dockerfiles/claude-code
 
 # Dev/Test image
 docker build -t claude-dev-img ./dockerfiles/claude-code-dev

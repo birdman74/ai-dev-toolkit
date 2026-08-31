@@ -132,7 +132,7 @@ For each persona (po, dev, test), copy `compose/claude-persona.yml` to:
 ```
 
 Replace all `<REPLACE:...>` placeholders. Key fields:
-- `image`: use `claude-experience-img` for PO, `claude-dev-img` for Dev and Test
+- `image`: use `claude-po-img` for PO, `claude-dev-img` for Dev and Test
 - `GIT_SSH_COMMAND`: point to `/home/brian/.claude/git-identities/<project>/id_ed25519`
 - `<PROJECT>_BOT_GH_TOKEN`: pass the PAT env var through
 - volumes: mount `.claude`, `.claude.json`, persona CLAUDE.md, project workspace, and gh config

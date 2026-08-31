@@ -325,6 +325,55 @@ Merging `main` into a feature branch after workflow file fixes is a required ste
 - Test's CLAUDE.md Phase 4 — removed `gh pr review --request-changes` instruction; pushing failing tests is now the trigger mechanism
 - `agentic-workflow-diagram.md` — updated to show the new trigger and explain the self-review limitation
 
+### Missing Trigger: Dev Fix Pushes to Open PR
+**~2026-08-30**
+
+**Problem discovered**: After Dev fixes implementation in response to Test's or Brian's feedback, Test was not automatically re-triggered for re-verification. `trigger-test-final-review.yml` only fires on PR opened/reopened — it does not fire on subsequent pushes to an existing open PR.
+
+**Fix**: Added `trigger-test-on-dev-fix.yml` — fires on any push to `feature/story-*` by the bot account, checks that:
+1. The commit author is `claude-streamvault-dev` (distinguishes Dev commits from Test commits)
+2. An open PR exists for the branch (prevents firing during Phase 2 initial implementation push, which happens before the PR is opened)
+
+If both conditions are true, Test is woken for Phase 3 re-verification.
+
+**Why the open PR check correctly handles Phase 2**: Dev pushes the implementation commit first, then opens the PR in the same session. At the time the push fires the workflow, no PR exists yet — the check returns false and the trigger skips. Only fix commits on an already-open PR pass the check.
+
+### Story Queue: GitHub Issues Replace File-Based State
+**~2026-08-30**
+
+**Problem with queue-state branch approach**: Git branches are not designed as databases. Concurrent pushes (e.g. PO adding stories while a PR merges) cause race conditions and push rejections. The queue-state branch was abandoned before implementation.
+
+**Solution: GitHub Issues as the state store**
+
+Story state is now managed entirely through GitHub Issues:
+- Each story has a corresponding GitHub Issue titled `story-NNN: [Title]`
+- Labels track state: `story` (all stories), `in-progress` (current work), `blocked` (unmet prerequisites)
+- The queue manager queries GitHub Issues API at runtime — no state files, no race conditions
+- Closing an issue = story completed; the queue manager closes issues automatically on PR merge
+
+**PO image upgraded**: PO persona switched from `claude-experience-img` to new `claude-po-img` which adds `gh` CLI to the base image. This is needed for `gh issue create` after writing each story spec. Java and Maven are intentionally excluded — PO has no need for build tooling.
+
+**Three properly scoped images now exist:**
+- `claude-experience-img` — base Claude Code + git (legacy, retained for other projects)
+- `claude-po-img` — base + gh CLI (PO persona)
+- `claude-dev-img` — base + Java 25 + Maven + gh CLI (Dev and Test personas)
+
+**`next-story.sh` rewritten**: Now queries GitHub Issues API instead of reading state from files. Logic:
+1. Checks for any open issue labeled `in-progress` — errors out if found (single-threaded constraint)
+2. Lists all open issues labeled `story`, sorted by issue number
+3. For each candidate, reads `## Prerequisites` from the spec file and checks if all prerequisite issues are closed
+4. Returns the first eligible story ID
+
+**`update-story-state.sh` deleted**: No longer needed — state lives in GitHub Issues, not files.
+
+**`## State` field dropped from story files**: Story files now contain only spec content (requirements, acceptance criteria, prerequisites). State is operational metadata and belongs in the issue tracker, not the spec.
+
+**Story format change — `## Prerequisites` field retained**: This static dependency information still lives in the spec file since it is part of the requirements definition, not operational state.
+
+**GitHub Project Board created**: Visual kanban board with four columns — Backlog, Ready, In Progress, Done — gives PO and Brian a human-readable view of the queue at all times.
+
+**One-time setup**: GitHub Issues created and closed for stories 001-004 to initialize the state history that `next-story.sh` depends on for prerequisite checking.
+
 ---
 
 ## Updated Parking Lot

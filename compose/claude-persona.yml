@@ -9,7 +9,7 @@
 
 services:
   claude-<REPLACE:project-persona>:
-    image: <REPLACE:image-name>        # e.g. claude-experience-img or claude-dev-img
+    image: <REPLACE:image-name>        # e.g. claude-po-img or claude-dev-img
     container_name: claude-<REPLACE:project-persona>
     stdin_open: true
     tty: true

@@ -6,7 +6,7 @@ This toolkit implements a **multi-persona agentic development workflow** using C
 
 | Persona | Role | Image | Commits As |
 |---|---|---|---|
-| PO | Product Owner — defines epics and user stories | `claude-experience-img` | `claude-<project>-po` |
+| PO | Product Owner — defines epics and user stories | `claude-po-img` | `claude-<project>-po` |
 | Dev | Senior Developer — implements against stories | `claude-dev-img` | `claude-<project>-dev` |
 | Test | Senior QA Engineer — writes and runs tests | `claude-dev-img` | `claude-<project>-test` |
 
@@ -63,5 +63,5 @@ This means persona instructions and project context are cleanly separated and in
 
 | Image | Dockerfile | Use |
 |---|---|---|
-| `claude-experience-img` | `dockerfiles/claude-code/Dockerfile` | PO persona (lightweight — no build tools needed) |
+| `claude-po-img` | `dockerfiles/claude-code/Dockerfile` | PO persona (lightweight — no build tools needed) |
 | `claude-dev-img` | `dockerfiles/claude-code-dev/Dockerfile` | Dev and Test personas (includes Java 25, Maven, gh CLI) |

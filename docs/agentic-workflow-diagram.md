@@ -35,6 +35,9 @@ flowchart TD
     T7["🔔 trigger-dev-on-test-commit.yml\npush to feature/story-*\npath: src/test/**\nauthor: claude-streamvault-test\nPR must have changes_requested"]
     DEV_P3["⚙️ DEV — Phase 3 Fix\nRead new failing tests\nFix until all tests pass\nmvn clean verify\nCommit + push\nNo new PR"]
 
+    T8["🔔 trigger-test-on-dev-fix.yml\npush to feature/story-*\nauthor: claude-streamvault-dev\nOpen PR must exist"]
+    TEST_REVERIFY["🧪 TEST — Re-verification\nPull branch\nRun full suite\nPost updated PR comment\ngh pr review --approve\nor --request-changes"]
+
     MERGE["✅ Brian reviews\nBrian approves as CODEOWNER\nBrian merges to main"]
 
     BRIAN --> PO_COMMIT
@@ -56,7 +59,10 @@ flowchart TD
     T6 --> TEST_P4
     TEST_P4 -->|"pushes failing tests\nauthor: claude-streamvault-test\nPR in changes_requested"| T7
     T7 --> DEV_P3
-    DEV_P3 --> T5
+    DEV_P3 -->|"author: claude-streamvault-dev\nopen PR exists"| T8
+    T8 --> TEST_REVERIFY
+    TEST_REVERIFY -->|"approves"| MERGE
+    TEST_REVERIFY -->|"requests changes"| T6
 
     style BRIAN fill:#4A90D9,color:#fff
     style ESCALATION fill:#E84545,color:#fff
@@ -68,10 +74,12 @@ flowchart TD
     style T5 fill:#F39C12,color:#fff
     style T6 fill:#F39C12,color:#fff
     style T7 fill:#F39C12,color:#fff
+    style T8 fill:#F39C12,color:#fff
     style TEST_P1 fill:#8E44AD,color:#fff
     style TEST_P2 fill:#8E44AD,color:#fff
     style TEST_P3 fill:#8E44AD,color:#fff
     style TEST_P4 fill:#8E44AD,color:#fff
+    style TEST_REVERIFY fill:#8E44AD,color:#fff
     style DEV_REVIEW fill:#2ECC71,color:#fff
     style DEV_IMPL fill:#2ECC71,color:#fff
     style DEV_P3 fill:#2ECC71,color:#fff
@@ -82,7 +90,7 @@ flowchart TD
 
 ## Trigger Summary Table
 
-| Trigger File | Event | Path / Condition Filter | Actor / Author Filter | Wakes |
+| Trigger File | Event | Path / Condition Filter | Author / Actor Filter | Wakes |
 |---|---|---|---|---|
 | `trigger-test-on-spec.yml` | push to `main` | `docs/specs/story-*.md` | `birdman74` or bot | Test Phase 1 |
 | `trigger-dev-review.yml` | push to `feature/story-*` | `story-*-test-plan.md` or `story-*-test-revision-r*.md` | `birdman74` or bot | Dev design review |
@@ -90,17 +98,14 @@ flowchart TD
 | `trigger-dev-implement.yml` | push to `feature/story-*` | `story-*-agreed.md` | `birdman74` or bot | Dev Phase 2 implementation |
 | `trigger-test-final-review.yml` | PR opened/reopened targeting `main` | — | bot only | Test Phase 3 final review |
 | `trigger-on-changes-requested.yml` | PR review `changes_requested` | — | `birdman74` only | Test Phase 4 |
-| `trigger-dev-on-test-commit.yml` | push to `feature/story-*` | `src/test/**` + PR in `changes_requested` + commit author is `claude-streamvault-test` | bot | Dev Phase 3 fix |
+| `trigger-dev-on-test-commit.yml` | push to `feature/story-*` | `src/test/**` + PR in `changes_requested` | author: `claude-streamvault-test` | Dev Phase 3 fix |
+| `trigger-test-on-dev-fix.yml` | push to `feature/story-*` | open PR must exist | author: `claude-streamvault-dev` | Test re-verification |
 
 ---
 
 ## Why Not Use gh pr review to Trigger Dev?
 
-GitHub prevents the PR author from reviewing their own PR. Since both Dev and Test use the same bot account (`briankcampbell-streamvault-bot`) and Dev opens the PR, Test cannot submit a formal review on that PR. The solution is to use the commit push as the trigger instead:
-
-- Test pushes new failing test files to the feature branch
-- `trigger-dev-on-test-commit.yml` checks that the commit author is `claude-streamvault-test` AND the PR is currently in `changes_requested` state
-- This distinguishes Phase 4 feedback loop commits from Phase 1 and Phase 3 test commits (which also push to `src/test/**` but the PR is not in `changes_requested` state at those points)
+GitHub prevents the PR author from reviewing their own PR. Since both Dev and Test use the same bot account (`briankcampbell-streamvault-bot`) and Dev opens the PR, Test cannot submit a formal review on that PR. The solution is to use commit pushes as triggers instead — Test pushing failing tests triggers Dev, Dev pushing fixes triggers Test.
 
 ---
 
