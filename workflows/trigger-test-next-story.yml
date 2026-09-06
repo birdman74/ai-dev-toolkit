@@ -53,7 +53,9 @@ jobs:
             --json number,title \
             --jq ".[] | select(.title | test(\"$STORY_ID\")) | .number" 2>/dev/null)
           if [ -n "$ISSUE_NUMBER" ]; then
-            gh issue edit "$ISSUE_NUMBER" --remove-label "in-progress"
+            gh api \
+              --method DELETE \
+              /repos/birdman74/streamvault/issues/$ISSUE_NUMBER/labels/in-progress
             gh issue close "$ISSUE_NUMBER" --comment "Completed — PR merged to main."
             echo "Closed issue #$ISSUE_NUMBER for $STORY_ID"
           fi
@@ -93,7 +95,10 @@ jobs:
             --json number,title \
             --jq ".[] | select(.title | test(\"$STORY_ID\")) | .number" 2>/dev/null)
           if [ -n "$ISSUE_NUMBER" ]; then
-            gh issue edit "$ISSUE_NUMBER" --add-label "in-progress"
+            gh api \
+              --method POST \
+              /repos/birdman74/streamvault/issues/$ISSUE_NUMBER/labels \
+              -f labels[]=in-progress
           fi
 
       - name: Find story file path
