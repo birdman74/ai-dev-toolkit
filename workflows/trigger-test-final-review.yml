@@ -23,7 +23,12 @@ on:
 jobs:
   trigger-test-review:
     runs-on: self-hosted
-    if: github.actor == '<REPLACE:bot-github-username>' || github.event_name == 'workflow_dispatch'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.actor == '<REPLACE:bot-github-username>' &&
+        startsWith(github.head_ref, 'feature/')
+      )
 
     steps:
       - name: Checkout
@@ -44,6 +49,7 @@ jobs:
           echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Final review triggered for $STORY_ID — PR #$PR_NUMBER"
 
       - name: Launch Test persona for final review
         env:
@@ -51,4 +57,5 @@ jobs:
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
           FEATURE_BRANCH: ${{ steps.context.outputs.branch }}
         run: |
+          echo "Launching Test persona for final review of $STORY_ID PR #$PR_NUMBER..."
           /home/<REPLACE:username>/bin/<REPLACE:project>-test-auto.sh "Dev has opened PR #$PR_NUMBER for $STORY_ID on $FEATURE_BRANCH. Execute your final verification phase per your CLAUDE.md: run the full suite, analyze the diff, write regression tests, post PR comment, and submit a formal gh pr review."
