@@ -1,5 +1,6 @@
 # trigger-dev-implement.yml
 # Triggers Dev persona to begin implementation after design agreement.
+# Story ID derived from branch name -- no payload parsing.
 # Replace all <REPLACE:...> placeholders before use.
 
 name: Trigger Dev — Agreed Design, Begin Implementation
@@ -36,13 +37,12 @@ jobs:
             STORY_ID="${{ github.event.inputs.story_id }}"
             BRANCH="${{ github.event.inputs.feature_branch }}"
           else
-            CHANGED=$(echo '${{ toJson(github.event.commits) }}' | \
-              jq -r '.[].modified[], .[].added[] | select(test("docs/specs/design/story-[0-9]+-.*\\.md"))' 2>/dev/null | head -1)
-            STORY_ID=$(echo "$CHANGED" | grep -oP 'story-\d+')
             BRANCH="${{ github.ref_name }}"
+            STORY_ID=$(echo "$BRANCH" | grep -oP 'story-\d+')
           fi
           echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "Agreement reached for $STORY_ID on $BRANCH"
 
       - name: Launch Dev persona for implementation
         env:

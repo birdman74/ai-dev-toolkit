@@ -1,6 +1,6 @@
 # trigger-test-on-dev-fix.yml
 # Triggers Test to re-verify when Dev pushes a fix to an open PR.
-# Distinguishes fix commits from initial implementation by checking if an open PR exists.
+# Commit author derived from git log -- no payload parsing.
 # Replace all <REPLACE:...> placeholders before use.
 
 name: Trigger Test — Dev Pushed Fix to Open PR
@@ -40,7 +40,7 @@ jobs:
             PR_NUMBER="${{ github.event.inputs.pr_number }}"
             COMMIT_AUTHOR="<REPLACE:dev-git-author-name>"
           else
-            COMMIT_AUTHOR=$(echo '${{ toJson(github.event.commits) }}' | jq -r '.[0].author.name' 2>/dev/null)
+            COMMIT_AUTHOR=$(git log -1 --format='%an')
             BRANCH="${{ github.ref_name }}"
             STORY_ID=$(echo "$BRANCH" | grep -oP 'story-\d+')
             PR_NUMBER=""
@@ -63,7 +63,7 @@ jobs:
         id: pr_check
         if: steps.author_check.outputs.is_dev == 'true' && github.event_name != 'workflow_dispatch'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.<REPLACE:bot-gh-token-secret-name> }}
           BRANCH: ${{ steps.context.outputs.branch }}
         run: |
           PR_DATA=$(gh pr list --head "$BRANCH" --state open --json number 2>/dev/null)

@@ -1,6 +1,6 @@
 # trigger-dev-on-test-commit.yml
-# Triggers Dev to fix implementation when Test pushes failing tests after a Changes Requested review.
-# Distinguishes Phase 4 feedback loop from Phase 1 initial tests by checking PR state.
+# Triggers Dev to fix implementation when Test pushes failing tests after Changes Requested.
+# Commit author derived from git log -- no payload parsing.
 # Replace all <REPLACE:...> placeholders before use.
 
 name: Trigger Dev — Test Committed Failing Tests After Changes Requested
@@ -42,7 +42,7 @@ jobs:
             PR_NUMBER="${{ github.event.inputs.pr_number }}"
             COMMIT_AUTHOR="<REPLACE:test-git-author-name>"
           else
-            COMMIT_AUTHOR=$(echo '${{ toJson(github.event.commits) }}' | jq -r '.[0].author.name' 2>/dev/null)
+            COMMIT_AUTHOR=$(git log -1 --format='%an')
             BRANCH="${{ github.ref_name }}"
             STORY_ID=$(echo "$BRANCH" | grep -oP 'story-\d+')
             PR_NUMBER=""
@@ -65,7 +65,7 @@ jobs:
         id: pr_check
         if: steps.author_check.outputs.is_test == 'true' && github.event_name != 'workflow_dispatch'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.<REPLACE:bot-gh-token-secret-name> }}
           BRANCH: ${{ steps.context.outputs.branch }}
         run: |
           PR_DATA=$(gh pr list --head "$BRANCH" --state open --json number,reviews 2>/dev/null)
@@ -91,4 +91,4 @@ jobs:
           FEATURE_BRANCH: ${{ steps.context.outputs.branch }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number || steps.pr_check.outputs.pr_number }}
         run: |
-          /home/<REPLACE:username>/bin/<REPLACE:project>-dev-auto.sh "Test has committed failing tests to $FEATURE_BRANCH for $STORY_ID on PR #$PR_NUMBER. Execute Phase 3 of your workflow per your CLAUDE.md: pull the branch, fix until all tests pass, commit, push. Do not open a new PR."
+          /home/<REPLACE:username>/bin/<REPLACE:project>-dev-auto.sh "Test has committed failing tests to $FEATURE_BRANCH for $STORY_ID on PR #$PR_NUMBER. Pull the branch, fix until all tests pass, commit, push. Do not open a new PR."
