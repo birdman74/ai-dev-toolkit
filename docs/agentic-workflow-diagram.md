@@ -1,6 +1,8 @@
-# StreamVault Agentic Workflow — Automation Reference
+# Agentic Workflow — Automation Reference
 
 This document shows the complete automated workflow, which GitHub Actions trigger fires at each step, and which persona is woken. All triggers run on the self-hosted runner. Manual `workflow_dispatch` overrides are available for every trigger.
+
+Actor and command names below use the reference project's values (`birdman74`, `claude-streamvault-*`, `mvn clean verify`). Substitute your own — see [new-project-setup.md](new-project-setup.md).
 
 ---
 
@@ -10,7 +12,12 @@ This document shows the complete automated workflow, which GitHub Actions trigge
 flowchart TD
     BRIAN(["👤 Brian\nbirdman74\nCODEOWNER"])
 
-    PO_COMMIT["PO commits\ndocs/specs/story-NNN-*.md\nto main\nCreates GitHub Issue\nlabeled 'story'"]
+    PO_WORK["📋 PO — Spec Authoring\nWork on specs/epic-NNN branch\nWrite epics + stories\nOpen PR targeting main\nCreate GitHub Issue per story\nlabeled 'story'"]
+    PO_PR["📥 Spec PR open\nawaiting reviewer"]
+    SPEC_DECISION{"Reviewer\ndecision"}
+
+    TPO["🔔 trigger-po-on-changes-requested.yml\nPR review: changes_requested\nhead ref: specs/*"]
+    PO_REVISE["📋 PO — Revise Specs\nSame branch, no new PR\nUpdate spec files + Issues"]
 
     T1["🔔 trigger-test-next-story.yml\npush to main path: docs/specs/story-*.md\nOR PR merged to main\nQueue manager finds next eligible story\nMarks GitHub Issue 'in-progress'"]
 
@@ -43,8 +50,13 @@ flowchart TD
 
     CLOSE["🔔 trigger-test-next-story.yml\nPR merged event\nCloses completed GitHub Issue\nFinds and starts next eligible story"]
 
-    BRIAN --> PO_COMMIT
-    PO_COMMIT --> T1
+    BRIAN --> PO_WORK
+    PO_WORK --> PO_PR
+    PO_PR --> SPEC_DECISION
+    SPEC_DECISION -->|"requests changes"| TPO
+    TPO --> PO_REVISE
+    PO_REVISE --> PO_PR
+    SPEC_DECISION -->|"approves + merges"| T1
     T1 --> TEST_P1
     TEST_P1 --> T2
     T2 -->|"round ≤ 3"| DEV_REVIEW
@@ -81,6 +93,7 @@ flowchart TD
     style T6 fill:#F39C12,color:#fff
     style T7 fill:#F39C12,color:#fff
     style T8 fill:#F39C12,color:#fff
+    style TPO fill:#F39C12,color:#fff
     style TEST_P1 fill:#8E44AD,color:#fff
     style TEST_P2 fill:#8E44AD,color:#fff
     style TEST_P3 fill:#8E44AD,color:#fff
@@ -89,7 +102,9 @@ flowchart TD
     style DEV_REVIEW fill:#2ECC71,color:#fff
     style DEV_IMPL fill:#2ECC71,color:#fff
     style DEV_P3 fill:#2ECC71,color:#fff
-    style PO_COMMIT fill:#95A5A6,color:#fff
+    style PO_WORK fill:#95A5A6,color:#fff
+    style PO_PR fill:#95A5A6,color:#fff
+    style PO_REVISE fill:#95A5A6,color:#fff
 ```
 
 ---
@@ -98,6 +113,7 @@ flowchart TD
 
 | Trigger File | Event | Path / Condition Filter | Author / Actor Filter | Wakes |
 |---|---|---|---|---|
+| `trigger-po-on-changes-requested.yml` | PR review `changes_requested` | PR head ref matches `specs/*` | human only | PO — revise specs on the same branch |
 | `trigger-test-next-story.yml` | push to `main` OR PR merged | `docs/specs/story-*.md` or any PR merge | human or bot | Test Phase 1 (via queue manager) |
 | `trigger-dev-review.yml` | push to `feature/story-*` | `story-*-test-plan.md` or `story-*-test-revision-r*.md` | human or bot | Dev design review |
 | `trigger-test-revision.yml` | push to `feature/story-*` | `story-*-dev-feedback-r*.md` | human or bot | Test Phase 2 revision |
