@@ -2,6 +2,10 @@
 #
 # Copy this file and replace all placeholders marked with <REPLACE> before use.
 #
+# <REPLACE:workspace-name> must match the WORKDIR baked into the image
+# (see dockerfiles/*/Dockerfile). Use the project name, e.g. `streamvault`,
+# so in-container paths read naturally in persona output.
+#
 # Usage:
 #   docker compose -f /mnt/e/docker/<REPLACE:project-persona>/docker-compose.yml run --rm claude-<REPLACE:project-persona>
 #
@@ -24,4 +28,4 @@ services:
       - /home/brian/.claude:/home/brian/.claude
       - /home/brian/.claude.json:/home/brian/.claude.json
       - <REPLACE:/path/to/project>/.claude/personas/<REPLACE:persona>/CLAUDE.md:/home/brian/.claude/CLAUDE.md
-      - <REPLACE:/path/to/project>:/workspace
+      - <REPLACE:/path/to/project>:/<REPLACE:workspace-name>

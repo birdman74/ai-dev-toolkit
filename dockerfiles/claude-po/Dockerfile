@@ -28,6 +28,6 @@ RUN mkdir -p /home/brian && chown node:node /home/brian
 
 USER node
 ENV HOME=/home/brian
-WORKDIR /workspace
+WORKDIR /<REPLACE:workspace-name>
 
 ENTRYPOINT ["claude"]

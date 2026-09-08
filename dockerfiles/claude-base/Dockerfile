@@ -19,7 +19,7 @@ USER node
 ENV HOME=/home/brian
 
 # Create a non-root working directory
-WORKDIR /workspace
+WORKDIR /<REPLACE:workspace-name>
 
 ENTRYPOINT ["claude"]
 
