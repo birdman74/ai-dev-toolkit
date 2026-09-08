@@ -22,6 +22,8 @@ on:
 
 jobs:
   trigger-test-on-dev-fix:
+    permissions:
+      contents: read
     runs-on: self-hosted
     if: github.actor == '<REPLACE:bot-github-username>' || github.event_name == 'workflow_dispatch'
 

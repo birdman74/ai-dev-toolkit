@@ -23,6 +23,8 @@ on:
 
 jobs:
   queue-next-story:
+    permissions:
+      contents: read
     runs-on: self-hosted
     if: |
       github.event_name == 'workflow_dispatch' ||
