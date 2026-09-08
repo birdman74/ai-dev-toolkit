@@ -28,6 +28,9 @@ ai-dev-toolkit/
 |         |- po/CLAUDE.md       # PO persona system prompt template
 |         |- dev/CLAUDE.md      # Dev persona system prompt template
 |         |- test/CLAUDE.md     # Test persona system prompt template
+|- templates/
+|    |- CONTRIBUTING.md         # Project conventions template (copied to repo root)
+|    |- adr/ADR-NNN-title.md    # Architecture Decision Record skeleton
 |- compose/
 |    |- claude-persona.yml      # Docker Compose template for any persona
 |- scripts/
