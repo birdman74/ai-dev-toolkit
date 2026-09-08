@@ -1,6 +1,6 @@
 # trigger-on-changes-requested.yml
 # Routes Changes Requested reviews to the correct persona.
-# Brian's review wakes Test. Bot review (from Test) is handled by trigger-dev-on-test-commit.yml.
+# The human reviewer's review wakes Test. Bot review (from Test) is handled by trigger-dev-on-test-commit.yml.
 # Replace all <REPLACE:...> placeholders before use.
 
 name: Trigger Persona — PR Changes Requested

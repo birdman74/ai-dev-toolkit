@@ -57,7 +57,7 @@ jobs:
           if [ -n "$ISSUE_NUMBER" ]; then
             gh api \
               --method DELETE \
-              /repos/birdman74/streamvault/issues/$ISSUE_NUMBER/labels/in-progress
+              /repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels/in-progress
             gh issue close "$ISSUE_NUMBER" --comment "Completed — PR merged to main."
             echo "Closed issue #$ISSUE_NUMBER for $STORY_ID"
           fi
@@ -99,7 +99,7 @@ jobs:
           if [ -n "$ISSUE_NUMBER" ]; then
             gh api \
               --method POST \
-              /repos/birdman74/streamvault/issues/$ISSUE_NUMBER/labels \
+              /repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels \
               -f labels[]=in-progress
           fi
 

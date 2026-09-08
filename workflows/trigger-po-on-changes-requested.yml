@@ -1,11 +1,11 @@
 # trigger-po-on-changes-requested.yml
-# Wakes PO persona when Brian requests changes on a specs/ PR.
+# Wakes PO persona when the human reviewer requests changes on a specs/ PR.
 # Only fires on specs/ branches -- will not trigger on feature branch reviews.
 # Replace all <REPLACE:...> placeholders before use.
 #
 # See ai-dev-toolkit/docs/new-project-setup.md for full setup instructions.
 
-name: Trigger PO — Brian Requested Changes on Specs PR
+name: Trigger PO — Reviewer Requested Changes on Specs PR
 
 on:
   pull_request_review:
@@ -55,5 +55,5 @@ jobs:
           SPECS_BRANCH: ${{ steps.context.outputs.branch }}
           PR_NUMBER: ${{ steps.context.outputs.pr_number }}
         run: |
-          echo "Waking PO to address Brian's review on PR #$PR_NUMBER..."
-          /home/<REPLACE:username>/bin/<REPLACE:project>-po-auto.sh "Brian has posted a Changes Requested review on specs PR #$PR_NUMBER on branch $SPECS_BRANCH. Read Brian's review comments carefully. Update the affected spec files on the same branch to address his feedback. Update any GitHub Issues whose story scope changed. Commit and push to origin/$SPECS_BRANCH. Do not open a new PR -- the existing one updates automatically."
+          echo "Waking PO to address the reviewer's feedback on PR #$PR_NUMBER..."
+          /home/<REPLACE:username>/bin/<REPLACE:project>-po-auto.sh "The human reviewer has posted a Changes Requested review on specs PR #$PR_NUMBER on branch $SPECS_BRANCH. Read the review comments carefully. Update the affected spec files on the same branch to address the feedback. Update any GitHub Issues whose story scope changed. Commit and push to origin/$SPECS_BRANCH. Do not open a new PR -- the existing one updates automatically."
