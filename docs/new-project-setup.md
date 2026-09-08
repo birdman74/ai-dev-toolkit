@@ -265,12 +265,14 @@ comment header of every file. Common ones:
 - `<REPLACE:username>` / `<REPLACE:project>` — path to the `-auto.sh` launchers in `~/bin`
 - `<REPLACE:java-version>` / `<REPLACE:node-version>` in `ci.yml`
 
-`trigger-test-next-story.yml` also contains two `gh api /repos/.../` calls —
-set the repo path there (or switch them to `${{ github.repository }}`).
+`trigger-test-next-story.yml`'s label API calls use `${{ github.repository }}`,
+so they need no per-project edit.
 
 Add a GitHub Actions secret for the bot PAT (the queue manager token was added
 in section 3). All triggers run on a `self-hosted` runner; `ci.yml` runs on
-`ubuntu-latest`.
+`ubuntu-latest`. Every workflow ships with an explicit least-privilege
+`permissions:` block and passes untrusted event fields through `env:` — leave
+both in place.
 
 ---
 
