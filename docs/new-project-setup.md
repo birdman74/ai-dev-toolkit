@@ -278,12 +278,21 @@ both in place.
 
 ## 9. Branch Protection
 
-In GitHub repo → **Settings → Rules → Rulesets → Add ruleset**:
+First add `.github/CODEOWNERS` with a single line so the "require code owner
+review" rule has an owner to route to:
+```
+* @<your-github-username>
+```
+The bot account is deliberately **not** a code owner — bot (Test) approval and
+human approval are independent requirements.
+
+Then, in GitHub repo → **Settings → Rules → Rulesets → Add ruleset**:
 - Target: `main`
 - Bypass list: add `birdman74` (for direct STATUS.md commits)
 - Rules to enable:
   - Restrict deletions ✅
   - Require a pull request before merging ✅
+    - Require review from Code Owners ✅
   - Require status checks to pass ✅ — the `ci.yml` jobs are
     `Validate Repository Structure`, `Backend Build`, `Frontend Build`
   - Block force pushes ✅
