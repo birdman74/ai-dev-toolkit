@@ -461,6 +461,18 @@ mount at a project-named root (e.g. `/streamvault`), set by a
 `WORKDIR` and the compose bind mount. In-container paths in persona output now
 read naturally.
 
+### Container Files Fully Genericized
+Removed the last hardcoded operator-specific values from the container files.
+`/home/brian` → `<REPLACE:home-dir>` across all three Dockerfiles (`mkdir`,
+`chown`, `ENV HOME`) and `compose/claude-persona.yml` (`HOME`, both
+`GIT_SSH_COMMAND` paths, and the `.claude` / `.claude.json` / persona-`CLAUDE.md`
+bind mounts on both sides). Like `<REPLACE:workspace-name>`, this value is baked
+into the image and must match in the compose file. The git-author email domain
+`@outlook.com` → `<REPLACE:email-domain>` in the compose `GIT_AUTHOR_EMAIL` /
+`GIT_COMMITTER_EMAIL` lines. `docs/new-project-setup.md` §5 now carries a
+placeholder table covering both. The Dockerfiles and compose file are now
+entirely placeholder-driven — nothing project- or operator-specific remains.
+
 ### Image Rename
 `dockerfiles/claude-code/` → `dockerfiles/claude-base/`
 (`claude-experience-img` → `claude-base-img`). The three images are now

@@ -188,7 +188,24 @@ mkdir -p docs/adr
 
 ---
 
-## 5. Docker Compose Files
+## 5. Docker Images and Compose Files
+
+### Dockerfile placeholders (set before `docker build`)
+
+The three Dockerfiles carry two placeholders that must be replaced before the
+images are built. **The same values must then be used in the compose file** —
+the image and the compose file have to agree or the bind mounts and in-container
+paths will not line up.
+
+| Placeholder | Represents | Where it appears | Value to use |
+|---|---|---|---|
+| `<REPLACE:home-dir>` | The absolute path of the home directory of the host user who runs the persona containers. It is baked in as the container's `HOME` **and** used verbatim as the host side of the `.claude` / `.claude.json` bind mounts, so the container's home path is made to mirror the host's — `~/.claude` then resolves to the same place inside and outside the container. | All 3 Dockerfiles: `mkdir -p`, `chown`, `ENV HOME`. `compose/claude-persona.yml`: `HOME=`, both paths in `GIT_SSH_COMMAND`, and the `.claude` / `.claude.json` / persona-`CLAUDE.md` volume entries (both sides). | The Linux home directory of the user running the containers, e.g. `/home/brian` (on WSL2/Ubuntu). Must be a real, readable directory on the host that already contains `.claude/`, `.claude.json`, and `.claude/git-identities/<project>/` from steps 2–4. |
+| `<REPLACE:workspace-name>` | The in-container project root. | All 3 Dockerfiles: `WORKDIR /<REPLACE:workspace-name>`. `compose/claude-persona.yml`: the container side of the project bind mount. | The project name, e.g. `streamvault` (mounts the repo at `/streamvault`). |
+
+Build the images with the placeholders filled in — see the build commands in
+the repo README (`claude-base-img`, then `claude-po-img` and `claude-dev-img`).
+
+### Compose files
 
 For each persona (po, dev, test), copy `compose/claude-persona.yml` to:
 ```
@@ -197,13 +214,18 @@ For each persona (po, dev, test), copy `compose/claude-persona.yml` to:
 
 Replace all `<REPLACE:...>` placeholders. Key fields:
 - `image`: use `claude-po-img` for PO, `claude-dev-img` for Dev and Test
-- `GIT_SSH_COMMAND`: point to `/home/brian/.claude/git-identities/<project>/id_ed25519`
+- `<REPLACE:home-dir>` / `<REPLACE:workspace-name>`: use the **exact same
+  values** baked into the image above
+- `GIT_SSH_COMMAND`: point to `<REPLACE:home-dir>/.claude/git-identities/<project>/id_ed25519`
+- `<REPLACE:your-email>` / `<REPLACE:email-domain>`: the local-part and domain of
+  your git address — commits are attributed to
+  `<your-email>+claude-<project>-<persona>@<email-domain>`
 - `<PROJECT>_BOT_GH_TOKEN`: pass the PAT env var through
-- `<REPLACE:workspace-name>`: the in-container project root. Must match the
-  `WORKDIR` baked into the image (`dockerfiles/*/Dockerfile`). Use the project
-  name, e.g. `streamvault`.
 - volumes: mount `.claude`, `.claude.json`, persona CLAUDE.md, project workspace
   (at `/<REPLACE:workspace-name>`), and gh config
+
+Throughout this document, example paths written as `/home/brian/...` are this
+same `<REPLACE:home-dir>` directory.
 
 ---
 

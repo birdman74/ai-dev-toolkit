@@ -6,6 +6,12 @@
 # (see dockerfiles/*/Dockerfile). Use the project name, e.g. `streamvault`,
 # so in-container paths read naturally in persona output.
 #
+# <REPLACE:home-dir> must also match the image (ENV HOME in dockerfiles/*/Dockerfile).
+# Use the absolute home directory of the host user running the containers,
+# e.g. `/home/brian` -- it is used verbatim as the host side of the .claude mounts.
+#
+# <REPLACE:email-domain> is the domain of your git address, e.g. `outlook.com`.
+#
 # Usage:
 #   docker compose -f /mnt/e/docker/<REPLACE:project-persona>/docker-compose.yml run --rm claude-<REPLACE:project-persona>
 #
@@ -18,14 +24,14 @@ services:
     stdin_open: true
     tty: true
     environment:
-      - HOME=/home/brian
+      - HOME=<REPLACE:home-dir>
       - GIT_AUTHOR_NAME=claude-<REPLACE:project-persona>
-      - GIT_AUTHOR_EMAIL=<REPLACE:your-email>+claude-<REPLACE:project-persona>@outlook.com
+      - GIT_AUTHOR_EMAIL=<REPLACE:your-email>+claude-<REPLACE:project-persona>@<REPLACE:email-domain>
       - GIT_COMMITTER_NAME=claude-<REPLACE:project-persona>
-      - GIT_COMMITTER_EMAIL=<REPLACE:your-email>+claude-<REPLACE:project-persona>@outlook.com
-      - GIT_SSH_COMMAND=ssh -i /home/brian/.claude/git-identities/<REPLACE:project>/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/home/brian/.claude/git-identities/<REPLACE:project>/known_hosts
+      - GIT_COMMITTER_EMAIL=<REPLACE:your-email>+claude-<REPLACE:project-persona>@<REPLACE:email-domain>
+      - GIT_SSH_COMMAND=ssh -i <REPLACE:home-dir>/.claude/git-identities/<REPLACE:project>/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=<REPLACE:home-dir>/.claude/git-identities/<REPLACE:project>/known_hosts
     volumes:
-      - /home/brian/.claude:/home/brian/.claude
-      - /home/brian/.claude.json:/home/brian/.claude.json
-      - <REPLACE:/path/to/project>/.claude/personas/<REPLACE:persona>/CLAUDE.md:/home/brian/.claude/CLAUDE.md
+      - <REPLACE:home-dir>/.claude:<REPLACE:home-dir>/.claude
+      - <REPLACE:home-dir>/.claude.json:<REPLACE:home-dir>/.claude.json
+      - <REPLACE:/path/to/project>/.claude/personas/<REPLACE:persona>/CLAUDE.md:<REPLACE:home-dir>/.claude/CLAUDE.md
       - <REPLACE:/path/to/project>:/<REPLACE:workspace-name>

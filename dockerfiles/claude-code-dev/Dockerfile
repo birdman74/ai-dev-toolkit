@@ -45,10 +45,10 @@ RUN npm install -g @anthropic-ai/claude-code
 ENV DISABLE_AUTOUPDATER=1
 
 # Set up home directory under node user (uid 1000)
-RUN mkdir -p /home/brian && chown node:node /home/brian
+RUN mkdir -p <REPLACE:home-dir> && chown node:node <REPLACE:home-dir>
 
 USER node
-ENV HOME=/home/brian
+ENV HOME=<REPLACE:home-dir>
 WORKDIR /<REPLACE:workspace-name>
 
 ENTRYPOINT ["claude"]
