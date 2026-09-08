@@ -152,10 +152,14 @@ mkdir -p .claude/personas/po .claude/personas/dev .claude/personas/test
 - Copy `personas/templates/po/CLAUDE.md` → `.claude/personas/po/CLAUDE.md`
 - Copy `personas/templates/dev/CLAUDE.md` → `.claude/personas/dev/CLAUDE.md`
 - Copy `personas/templates/test/CLAUDE.md` → `.claude/personas/test/CLAUDE.md`
-- Replace all `<REPLACE:...>` placeholders in each (project name, stack, build command)
-- The Dev and Test templates reference `docs/adr/` and, by name, `ADR-001` as
-  the canonical testing-pattern decision. Either seed `docs/adr/ADR-001-*.md`
-  (see below) or adjust those references to match your project's first ADR.
+- Replace all `<REPLACE:...>` placeholders in each:
+  - `<REPLACE:project-name>` — the project name
+  - `<REPLACE:reviewer-name>` — the human architect/reviewer (CODEOWNER)
+  - `<REPLACE:verify-command>` (Dev, Test) — the full-suite command, e.g. `mvn clean verify`
+  - `<REPLACE:stack-summary>` (Dev) — the backend stack, e.g. `Java 25, Spring Boot 3.5.x, Spring AI`
+- The Dev and Test templates instruct the personas to consult `docs/adr/` for
+  the project's testing-pattern decision before writing cross-cutting tests.
+  Seed at least one ADR there (see below) so that instruction resolves.
 
 ### Root CLAUDE.md
 
