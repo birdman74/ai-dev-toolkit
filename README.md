@@ -20,9 +20,9 @@ The result is a fully auditable, AI-augmented development process where:
 ```
 ai-dev-toolkit/
 |- dockerfiles/
-|    |- claude-code/            # Base image (PO persona — lightweight)
-|    |- claude-code-dev/        # Dev/Test image (adds Java 25, Maven, gh CLI)
-|    |- claude-po/              # PO image (adds gh CLI)
+|    |- claude-base/            # Base image — Claude Code + git only
+|    |- claude-po/              # PO image — base + gh CLI (no build tools)
+|    |- claude-code-dev/        # Dev/Test image — adds Java 25, Maven, gh CLI
 |- personas/
 |    |- templates/
 |         |- po/CLAUDE.md       # PO persona system prompt template
@@ -31,8 +31,12 @@ ai-dev-toolkit/
 |- compose/
 |    |- claude-persona.yml      # Docker Compose template for any persona
 |- scripts/
-|    |- launch-persona.sh       # Interactive launcher script template
-|    |- launch-persona-auto.sh  # Non-interactive launcher for GitHub Actions
+|    |- launch-persona.sh          # Interactive launcher script template
+|    |- launch-persona-auto.sh     # Non-interactive launcher for GitHub Actions
+|    |- next-story-template.sh     # Queue manager — next eligible story from GitHub Issues
+|- workflows/
+|    |- ci.yml                          # Structure validation + backend/frontend build
+|    |- trigger-*.yml                   # Persona orchestration triggers (copy to .github/workflows/)
 |- docs/
 |    |- how-it-works.md                 # Architecture and workflow explanation
 |    |- new-project-setup.md            # Step-by-step checklist for new projects
@@ -57,31 +61,41 @@ See [docs/agentic-workflow-diagram.md](docs/agentic-workflow-diagram.md) for the
 
 ## GitHub Actions Orchestration
 
-The workflow is automated via six trigger workflows running on a self-hosted runner:
+The workflow is automated via nine trigger workflows plus `ci.yml`, running on a self-hosted runner. Templates live in `workflows/` — copy them to `.github/workflows/` and fill the placeholders.
 
 | Trigger | Event | Wakes |
 |---|---|---|
-| `trigger-test-on-spec.yml` | PO commits story spec to main | Test (Phase 1) |
-| `trigger-dev-review.yml` | Test commits test plan or revision | Dev (design review) |
-| `trigger-test-revision.yml` | Dev commits feedback | Test (revision) |
-| `trigger-dev-implement.yml` | Dev commits agreed.md | Dev (implementation) |
-| `trigger-test-final-review.yml` | Bot opens PR | Test (final review) |
-| `trigger-on-changes-requested.yml` | Changes Requested review submitted | Test or Dev (feedback loop) |
+| `trigger-test-next-story.yml` | story spec pushed to main, or any PR merged | Test — Phase 1 (via queue manager) |
+| `trigger-dev-review.yml` | Test pushes test plan or revision | Dev — design review |
+| `trigger-test-revision.yml` | Dev pushes `dev-feedback-rN.md` | Test — revision |
+| `trigger-dev-implement.yml` | Dev pushes `story-NNN-agreed.md` | Dev — implementation |
+| `trigger-test-final-review.yml` | bot opens a PR targeting main | Test — final review |
+| `trigger-on-changes-requested.yml` | human submits a Changes Requested review | Test — write failing tests |
+| `trigger-dev-on-test-commit.yml` | Test pushes to `src/test/**` while PR is `changes_requested` | Dev — fix |
+| `trigger-test-on-dev-fix.yml` | Dev pushes to an open PR branch | Test — re-verification |
+| `trigger-po-on-changes-requested.yml` | human requests changes on a `specs/` PR | PO — revise specs |
 
 Every trigger supports `workflow_dispatch` for manual override from the GitHub Actions tab.
+
+### Story queue
+
+Stories are tracked as GitHub Issues labeled `story`. `scripts/next-story-template.sh` (deployed as `scripts/next-story.sh`) returns the lowest-numbered open story whose prerequisites are all closed, enforces a single `in-progress` story at a time, and is run by `trigger-test-next-story.yml`. On PR merge the completed issue is closed and the next eligible story starts automatically.
 
 ## Docker Images
 
 | Image | Dockerfile | Purpose |
 |---|---|---|
 | `claude-base-img` | `dockerfiles/claude-base/Dockerfile` | Base image - Claude Code + git only |
-| `claude-po-img` | `dockerfiles/claude-po/Dockerfile` | PO persona - Claude Code + git + gh CLI |
+| `claude-po-img` | `dockerfiles/claude-po/Dockerfile` | PO persona - base + gh CLI (no build tools) |
 | `claude-dev-img` | `dockerfiles/claude-code-dev/Dockerfile` | Dev/Test personas - adds Java 25, Maven, gh CLI |
 
 Build the images:
 ```bash
+# Base image
+docker build -t claude-base-img ./dockerfiles/claude-base
+
 # PO image
-docker build -t claude-po-img ./dockerfiles/claude-code
+docker build -t claude-po-img ./dockerfiles/claude-po
 
 # Dev/Test image
 docker build -t claude-dev-img ./dockerfiles/claude-code-dev
