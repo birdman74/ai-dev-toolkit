@@ -24,7 +24,7 @@ jobs:
     permissions:
       contents: read
     runs-on: self-hosted
-    if: github.actor == '<REPLACE:your-github-username>' || github.actor == '<REPLACE:bot-github-username>'
+    if: github.actor == '<REPLACE:your-github-username>' || github.actor == '<REPLACE:bot-github-username>' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout

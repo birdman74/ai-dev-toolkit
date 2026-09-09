@@ -419,6 +419,14 @@ The single bot PAT was split:
 - Trigger jobs gained an env-injection guard — untrusted event fields (branch
   names, commit messages) are passed through `env:` and referenced as shell
   variables rather than interpolated directly into `run:` scripts.
+- The job-level `if:` on every push-triggered trigger was normalized to the same
+  three-way guard: `github.actor == '<REPLACE:your-github-username>' ||
+  github.actor == '<REPLACE:bot-github-username>' || github.event_name ==
+  'workflow_dispatch'`. Previously some jobs guarded on only the bot actor (so a
+  human recovery push was ignored) or omitted the explicit dispatch clause.
+- `trigger-dev-on-test-commit.yml`'s push path filter was broadened from
+  `src/test/**` to `**/src/test/**` plus `**/__tests__/**` so it fires for
+  backend, frontend, and future service test trees.
 - Label management moved off `gh issue edit --add-label` onto
   `gh api --method POST/DELETE /repos/<repo>/issues/<n>/labels` for consistent
   behavior; the toolkit templates use `${{ github.repository }}` so no repo path

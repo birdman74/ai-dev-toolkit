@@ -281,7 +281,12 @@ cp <toolkit>/workflows/*.yml .github/workflows/
 
 Then replace the `<REPLACE:...>` placeholders in each — they are listed in the
 comment header of every file. Common ones:
-- `<REPLACE:your-github-username>` / `<REPLACE:bot-github-username>` — actor guards
+- `<REPLACE:your-github-username>` / `<REPLACE:bot-github-username>` — actor
+  guards. Every push-triggered trigger gates its job on
+  `github.actor == '<REPLACE:your-github-username>' || github.actor ==
+  '<REPLACE:bot-github-username>' || github.event_name == 'workflow_dispatch'`,
+  so only your account or the bot can drive the pipeline by push, and a manual
+  dispatch always runs.
 - `<REPLACE:test-git-author-name>` / `<REPLACE:dev-git-author-name>` — e.g. `claude-<project>-test`
 - `<REPLACE:bot-gh-token-secret-name>` — the Actions secret holding the bot PAT
 - `<REPLACE:username>` / `<REPLACE:project>` — path to the `-auto.sh` launchers in `~/bin`
