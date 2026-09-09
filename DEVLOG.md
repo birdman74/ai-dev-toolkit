@@ -395,6 +395,13 @@ starts the next eligible story. The toolkit ships the queue script as
 `scripts/next-story-template.sh` (deployed as `scripts/next-story.sh` with the
 `REPO="owner/repo"` line filled in).
 
+**Timing fix (story-005 merge).** After a PR merge the `gh issue close` in the
+close step was not yet visible to the queue manager's next API read — it still
+saw the just-completed story as open and picked the wrong next story. A
+`sleep 30` step (`Wait for GitHub API to reflect issue close`, guarded to the
+`pull_request` merged event) was added between the close step and the
+`Determine next story` step to let the write propagate.
+
 ### PO Works on a `specs/` Branch and Opens a PR
 PO no longer commits specs straight to `main`. It works on a
 `specs/epic-NNN-*` branch, opens a PR for human review, and creates the GitHub

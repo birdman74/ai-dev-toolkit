@@ -48,7 +48,7 @@ flowchart TD
 
     MERGE["✅ Brian reviews\nBrian approves as CODEOWNER\nBrian merges to main"]
 
-    CLOSE["🔔 trigger-test-next-story.yml\nPR merged event\nCloses completed GitHub Issue\nFinds and starts next eligible story"]
+    CLOSE["🔔 trigger-test-next-story.yml\nPR merged event\nCloses completed GitHub Issue\nWaits ~30s for API to settle\nFinds and starts next eligible story"]
 
     BRIAN --> PO_WORK
     PO_WORK --> PO_PR
@@ -135,7 +135,7 @@ Stories are managed as GitHub Issues labeled `story`. The queue manager (`script
 4. Checks all prerequisite story issues are closed (completed)
 5. Returns the lowest-numbered eligible story
 
-When a PR merges, `trigger-test-next-story.yml` automatically closes the completed story issue, then immediately finds and starts the next eligible story.
+When a PR merges, `trigger-test-next-story.yml` automatically closes the completed story issue, waits ~30s for the close to propagate through the GitHub API, then finds and starts the next eligible story. The pause is required because an immediate read after `gh issue close` can still return the just-closed issue as open, causing the queue manager to pick the wrong story.
 
 ---
 
