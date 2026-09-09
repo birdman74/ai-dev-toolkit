@@ -40,7 +40,7 @@ flowchart TD
     T6["🔔 trigger-on-changes-requested.yml\nPR review: changes_requested\nreviewer: birdman74 only"]
     TEST_P4["🧪 TEST — Phase 4\nRead Brian's comments\nWrite failing tests\nCommit + push\nPush is the trigger for Dev"]
 
-    T7["🔔 trigger-dev-on-test-commit.yml\npush to feature/story-*\npath: src/test/**\nauthor: claude-streamvault-test\nPR must have changes_requested"]
+    T7["🔔 trigger-dev-on-test-commit.yml\npush to feature/story-*\npath: **/src/test/** or **/__tests__/**\nauthor: claude-streamvault-test\nPR must have changes_requested"]
     DEV_P3["⚙️ DEV — Phase 3 Fix\nRead new failing tests\nFix until all tests pass\nmvn clean verify\nCommit + push\nNo new PR"]
 
     T8["🔔 trigger-test-on-dev-fix.yml\npush to feature/story-*\nauthor: claude-streamvault-dev\nOpen PR must exist"]
@@ -120,7 +120,7 @@ flowchart TD
 | `trigger-dev-implement.yml` | push to `feature/story-*` | `story-*-agreed.md` | human or bot | Dev Phase 2 implementation |
 | `trigger-test-final-review.yml` | PR opened/reopened targeting `main` | — | bot only | Test Phase 3 final review |
 | `trigger-on-changes-requested.yml` | PR review `changes_requested` | — | human only | Test Phase 4 |
-| `trigger-dev-on-test-commit.yml` | push to `feature/story-*` | `src/test/**` + PR in `changes_requested` | author: Test persona | Dev Phase 3 fix |
+| `trigger-dev-on-test-commit.yml` | push to `feature/story-*` | `**/src/test/**` or `**/__tests__/**` + PR in `changes_requested` | author: Test persona | Dev Phase 3 fix |
 | `trigger-test-on-dev-fix.yml` | push to `feature/story-*` | open PR must exist | author: Dev persona | Test re-verification |
 
 ---

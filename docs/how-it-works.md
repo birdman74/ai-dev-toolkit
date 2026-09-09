@@ -70,7 +70,7 @@ Human (Architect / Reviewer)
 If the human (or Test) requests changes on the PR:
 
 - **Human requests changes** → Test writes new failing tests covering the gap and pushes them. The push is the trigger.
-- Because Dev and Test share one bot account and Dev opened the PR, **GitHub will not let Test submit a formal review on that PR**. So the feedback loop is push-based: Test pushes failing tests to `src/test/**`, a workflow detects the commit author plus the PR's `changes_requested` state, and wakes Dev.
+- Because Dev and Test share one bot account and Dev opened the PR, **GitHub will not let Test submit a formal review on that PR**. So the feedback loop is push-based: Test pushes failing tests to any test directory (`**/src/test/**` or `**/__tests__/**`), a workflow detects the commit author plus the PR's `changes_requested` state, and wakes Dev.
 - Dev fixes the implementation on the same branch (no new PR), pushes, and Test re-verifies.
 
 ## GitHub Actions Orchestration
@@ -85,7 +85,7 @@ Every hand-off above is fired by a trigger workflow on a self-hosted runner. Eac
 | `trigger-dev-implement.yml` | Dev pushes `story-NNN-agreed.md` | Dev — implementation |
 | `trigger-test-final-review.yml` | bot opens a PR targeting `main` | Test — final verification |
 | `trigger-on-changes-requested.yml` | human submits a Changes Requested review | Test — write failing tests |
-| `trigger-dev-on-test-commit.yml` | Test pushes to `src/test/**` while PR is `changes_requested` | Dev — fix |
+| `trigger-dev-on-test-commit.yml` | Test pushes to `**/src/test/**` or `**/__tests__/**` while PR is `changes_requested` | Dev — fix |
 | `trigger-test-on-dev-fix.yml` | Dev pushes to an open PR branch | Test — re-verification |
 | `trigger-po-on-changes-requested.yml` | human submits a Changes Requested review on a `specs/` PR | PO — revise specs |
 | `ci.yml` | push / PR to `main` | — (structure + build checks) |
