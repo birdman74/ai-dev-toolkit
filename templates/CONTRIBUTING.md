@@ -38,6 +38,10 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - The Test persona must post a test run summary as a PR comment before the
   human reviews
 
+### Pipeline Changes
+- Every pipeline knob (round limits, timeouts, accounts, board names) lives in `.github/pipeline-config.env`. Never hard-code one in a workflow, script or persona file.
+- Every hand-off rule lives in `scripts/transition.sh`. Workflows stay thin adapters.
+
 ### STATUS.md
 Every meaningful commit must include a STATUS.md update in the same commit:
 - Update `Last Updated` date to today (YYYY-MM-DD)
@@ -140,7 +144,9 @@ All files use LF line endings, enforced by `.gitattributes`.
 | Architectural decisions with alternatives | `docs/adr/` |
 | Coding and testing conventions | `CONTRIBUTING.md` (this file) |
 | Story requirements and acceptance criteria | `docs/specs/story-NNN-*.md` |
-| Design artifacts (test plans, contracts) | `docs/specs/design/` |
+| Design artifacts (test plans, contracts, feedback, PO questions and answers) | `docs/specs/design/` |
+| Pipeline thresholds, accounts and timing | `.github/pipeline-config.env` |
+| Pipeline hand-off rules (routing, prompts, expected outcomes) | `scripts/transition.sh` |
 | Deferred work and open questions | `docs/specs/backlog.md` |
 | Project health and story status | `STATUS.md` |
 | Project history and lessons learned | `ai-dev-toolkit/DEVLOG.md` |

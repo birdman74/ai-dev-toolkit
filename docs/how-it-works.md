@@ -1,14 +1,14 @@
 # How It Works
 
-This toolkit implements a **spec-driven, TDD-first, multi-persona agentic development workflow** using Claude Code Docker containers. Each persona is a separate container with a scoped identity, a scoped filesystem view, and a persona-specific `CLAUDE.md` system prompt that defines its role and responsibilities. GitHub Actions orchestrates the hand-offs between personas — no manual persona launching is required once a story enters the queue.
+This toolkit implements a **spec-driven, TDD-first, multi-persona agentic development workflow** using Claude Code Docker containers. Each persona is a separate container with a scoped identity, a scoped filesystem view, and a persona-specific `CLAUDE.md` system prompt that defines its role and responsibilities. GitHub Actions orchestrates the hand-offs between personas - no manual persona launching is required once a story enters the queue.
 
 ## The Three Personas
 
 | Persona | Role | Image | Commits As |
 |---|---|---|---|
-| PO | Product Owner — defines epics and user stories | `claude-po-img` | `claude-<project>-po` |
-| Dev | Senior Developer — reviews Test's design, then implements | `claude-dev-img` | `claude-<project>-dev` |
-| Test | Senior QA Engineer — goes first, defines contracts and failing tests | `claude-dev-img` | `claude-<project>-test` |
+| PO | Product Owner - defines epics and user stories | `claude-po-img` | `claude-<project>-po` |
+| Dev | Senior Developer - reviews Test's design, then implements | `claude-dev-img` | `claude-<project>-dev` |
+| Test | Senior QA Engineer - goes first, defines contracts and failing tests | `claude-dev-img` | `claude-<project>-test` |
 
 ## The Workflow
 
@@ -28,94 +28,103 @@ Human (Architect / Reviewer)
   Human reviews and merges the specs PR
         |
         v
-  Queue manager  (scripts/next-story.sh, run by GitHub Actions)
-  - Picks the lowest-numbered open `story` issue whose prerequisites are all closed
+  Queue  (scripts/next-story.sh, run by the test-kickoff gate)
+  - Picks the lowest-numbered open `story` issue whose prerequisites were all closed as completed
   - Marks it `in-progress` and wakes Test
         |
         v
-  Test Persona — Phase 1  (creates the feature branch)
+  Test Persona: Phase 1  (creates the feature branch)
   - Writes a test plan mapped to every AC-N acceptance criterion
   - Defines API contracts and cross-story invariant tests
   - Commits failing automated tests
         |
         v
-  Dev Persona — Design Review
-  - Reads the story, test plan, and contracts
-  - Either commits story-NNN-agreed.md, or commits dev-feedback-rN.md
-  - Up to 3 iteration rounds; Test revises in between
-  - After round 3 without agreement, a GitHub Issue escalates to the human
-        |
+  Dev Persona: Design Review           <-- loop, up to DESIGN_ROUND_LIMIT rounds -->
+  - Checks the design AND that every committed test matches the contracts      Test revises
+  - Commits story-NNN-agreed.md, or dev-feedback-rN.md                         and reconciles
+        |                                                                      its test code
         v
-  Dev Persona — Implementation  (after story-NNN-agreed.md exists)
+  Dev Persona: Implementation
   - Writes lower-level unit tests first
   - Implements until the full suite passes (mvn clean verify)
+  - A defective test? Reports it in impl-feedback-rN.md; Test fixes or explains
+    in impl-feedback-response-rN.md; Dev resumes  (IMPL_FEEDBACK_ROUND_LIMIT)
   - Opens a PR as the bot account
         |
         v
-  Test Persona — Final Verification
+  Test Persona: Final Verification
   - Runs the full suite, analyzes the diff for regressions
-  - Adds regression tests for any shared-infrastructure changes
-  - Posts a structured test-run summary as a PR comment
-  - Submits gh pr review --approve or --request-changes
+  - Posts a Test Run Summary as a PR comment with a verdict marker
+  - CHANGES_REQUESTED wakes Dev to fix; Dev's fix wakes Test to re-verify  (DEV_FIX_ROUND_LIMIT)
         |
-        v
+        v  (APPROVED)
   Human reviews the PR and merges to main
         |
         v
-  Queue manager closes the completed issue and starts the next eligible story
+  The issue is closed as completed, dependents unblocked, the next story starts
 ```
+
+At any point, Test or Dev can ask PO about an acceptance criterion by committing `po-question-rN.md`. PO answers in `po-answer-rN.md` on the same branch (and may amend that story's criteria), and the answer wakes whoever asked (`PO_QUESTION_LIMIT` per story).
 
 ### Changes Requested feedback loop
 
-If the human (or Test) requests changes on the PR:
+- **Test requests changes**: Test's verdict comment (`<!-- test-verdict: CHANGES_REQUESTED -->`) wakes Dev. Dev and Test share the bot account that opened the PR, and GitHub does not let a PR author review its own PR, so the verdict is a comment, never a formal review (ADR-004).
+- **The human requests changes**: Test writes a failing test for every point a test can express, lists the rest as Non-testable review points, and posts a CHANGES_REQUESTED verdict, which wakes Dev the same way.
+- Dev fixes on the same branch (no new PR) and pushes once; that push wakes Test to re-verify.
 
-- **Human requests changes** → Test writes new failing tests covering the gap and pushes them. The push is the trigger.
-- Because Dev and Test share one bot account and Dev opened the PR, **GitHub will not let Test submit a formal review on that PR**. So the feedback loop is push-based: Test pushes failing tests to any test directory (`**/src/test/**` or `**/__tests__/**`), a workflow detects the commit author plus the PR's `changes_requested` state, and wakes Dev.
-- Dev fixes the implementation on the same branch (no new PR), pushes, and Test re-verifies.
+### When the human is pulled in
+
+Only through a `needs-brian` issue, assigned to the human by the bot account: a loop passed its limit, a persona stalled, crashed or timed out, PO judged an answer beyond the story's scope, or a story PR was closed without merging. The issue names the Manual Dispatch to run once the cause is fixed, and closes itself when the story moves again.
 
 ## GitHub Actions Orchestration
 
-Every hand-off above is fired by a trigger workflow on a self-hosted runner. Each also supports `workflow_dispatch` for manual recovery. See [agentic-workflow-diagram.md](agentic-workflow-diagram.md) for the full visual chain and the per-trigger condition filters.
+Every hand-off is decided in one place and run by one reusable workflow (ADR-005):
 
-| Trigger | Fires on | Wakes |
+- **`.github/pipeline-config.env`** holds every knob: accounts, persona git authors, launcher paths, round limits, timeouts, retries, board names. `scripts/pipeline-config.sh` validates it.
+- **`scripts/transition.sh`** is the registry of hand-offs: for each one it holds the routing rule, the live state check, round counting, the limit, the prompt, and the expected result.
+- **`persona-run.yml`** (reusable, self-hosted runner) rechecks that the hand-off is still needed, launches the persona, removes its container, verifies the result on GitHub, and escalates or resolves.
+- **Six adapters** (`pipeline-*.yml`) turn GitHub events into a gate job on a GitHub-hosted runner that runs `transition.sh route` from `main`, then call `persona-run.yml@main`.
+
+| Adapter | Fires on | Hand-offs |
 |---|---|---|
-| `trigger-test-next-story.yml` | story spec pushed to `main`, or any PR merged | Test — Phase 1 (via the queue manager) |
-| `trigger-dev-review.yml` | Test pushes a test plan or revision | Dev — design review |
-| `trigger-test-revision.yml` | Dev pushes `dev-feedback-rN.md` | Test — revision |
-| `trigger-dev-implement.yml` | Dev pushes `story-NNN-agreed.md` | Dev — implementation |
-| `trigger-test-final-review.yml` | bot opens a PR targeting `main` | Test — final verification |
-| `trigger-on-changes-requested.yml` | human submits a Changes Requested review | Test — write failing tests |
-| `trigger-dev-on-test-commit.yml` | Test pushes to `**/src/test/**` or `**/__tests__/**` while PR is `changes_requested` | Dev — fix |
-| `trigger-test-on-dev-fix.yml` | Dev pushes to an open PR branch | Test — re-verification |
-| `trigger-po-on-changes-requested.yml` | human submits a Changes Requested review on a `specs/` PR | PO — revise specs |
-| `ci.yml` | push / PR to `main` | — (structure + build checks) |
+| `pipeline-main-and-merge.yml` | story spec pushed to `main`, PR closed | queue, Test Phase 1 |
+| `pipeline-feature-push.yml` | any push to `feature/story-*` | design loop, implementation, defective-test loop, PO loop, Test re-verification |
+| `pipeline-pr-opened.yml` | the bot opens a story PR | Test final verification |
+| `pipeline-test-verdict.yml` | Test's CHANGES_REQUESTED verdict comment | Dev fix |
+| `pipeline-review-submitted.yml` | the human's Changes Requested review | Test Phase 4 (story PR), PO revision (specs PR) |
+| `pipeline-manual.yml` | manual dispatch | any hand-off, for recovery |
+| `sync-blocked-labels.yml`, `sync-project-board.yml` | issue events | `blocked` labels, project board columns |
+| `ci.yml` | push / PR to `main` | (structure and build checks) |
+
+See [agentic-workflow-diagram.md](agentic-workflow-diagram.md) for the diagram, the full hand-off table, and the human's PR review guide.
 
 ## Story Queue (GitHub Issues)
 
-Story state lives entirely in GitHub Issues — there are no state files to race on.
+Story state lives entirely in GitHub Issues: there are no state files to race on.
 
 - Each story has an issue titled `story-NNN: <Title>`, labeled `story`.
 - Labels track state: `in-progress` (current work), `blocked` (unmet prerequisites).
-- `scripts/next-story.sh` queries the Issues API at runtime: it errors if any story is already `in-progress`, otherwise returns the lowest-numbered open story whose `## Prerequisites` (parsed from the spec file) are all closed.
-- On PR merge, `trigger-test-next-story.yml` closes the completed issue and immediately starts the next eligible story.
+- `scripts/next-story.sh` queries the Issues API at runtime: it stops if any story is already `in-progress`, otherwise returns the lowest-numbered open story whose `## Prerequisites` (parsed from the spec file by `scripts/check-prerequisites.sh`) were all closed as completed. It fails closed on any API error.
+- On PR merge, the gate closes the completed issue as completed and starts the next eligible story. `sync-blocked-labels.yml` and `sync-project-board.yml` keep labels and the board in step.
 
 ## Security Model
 
 - Each persona container runs as a non-root user (`node`, uid 1000).
-- Each project gets one scoped SSH deploy key shared across personas — personas can push branches but branch protection on `main` blocks merges.
-- Two fine-grained PATs, both least-privilege:
-  - **Bot persona token** (`<PROJECT>_BOT_GH_TOKEN`) — used by the personas' `gh` sessions for PR and review operations. Generated by the bot collaborator account.
-  - **Queue manager token** (`QUEUE_MANAGER_GH_TOKEN`) — used only by `trigger-test-next-story.yml` for issue label writes and closing issues. Generated by the repo owner, because a collaborator's fine-grained PAT cannot write issues on a repo it does not own.
+- Each project gets one scoped SSH deploy key shared across personas - personas can push branches but branch protection on `main` blocks merges.
+- Three tokens, each least-privilege:
+  - **Bot persona token** (`<PROJECT>_BOT_GH_TOKEN`): a classic token from the bot collaborator account (fine-grained tokens cannot write to a repo the account does not own). The workflows use it for PR reads, verdict checks and escalation issues. The personas' own `gh` sessions log in as the bot through a mounted `gh` config directory, not through an environment variable.
+  - **Queue manager token** (`QUEUE_MANAGER_GH_TOKEN`): a fine-grained token from the repo owner, used only by the queue and label reconciliation for issue labels and closing issues.
+  - **Project board token** (`PROJECT_BOARD_GH_TOKEN`): a classic token from the repo owner with `project` and `repo` scopes, used only by the board sync. `GITHUB_TOKEN` and fine-grained tokens cannot reach a user-owned Projects V2 board.
 - Neither token can merge to `main`; merges are human-only.
-- Each persona only mounts the directories it needs — no access to unrelated projects.
-- Credentials live in `.env` files (gitignored) — never hardcoded in committed files.
+- Each persona only mounts the directories it needs - no access to unrelated projects.
+- Credentials live in GitHub Actions secrets or gitignored files, never in committed files.
 
 ## CLAUDE.md Hierarchy
 
 Claude Code reads two CLAUDE.md files on startup and merges them:
 
-1. `~/.claude/CLAUDE.md` (global) — persona-specific behavior, mounted per container from `.claude/personas/<persona>/CLAUDE.md`
-2. `<workspace>/CLAUDE.md` (project root) — shared project context, versioned in the repo
+1. `~/.claude/CLAUDE.md` (global) - persona-specific behavior, mounted per container from `.claude/personas/<persona>/CLAUDE.md`
+2. `<workspace>/CLAUDE.md` (project root) - shared project context, versioned in the repo
 
 The project is mounted at a project-named root (e.g. `/streamvault`), set by `<REPLACE:workspace-name>` in the Dockerfile `WORKDIR` and the compose bind mount. This keeps persona instructions and project context cleanly separated and independently versioned.
 
@@ -123,6 +132,6 @@ The project is mounted at a project-named root (e.g. `/streamvault`), set by `<R
 
 | Image | Dockerfile | Use |
 |---|---|---|
-| `claude-base-img` | `dockerfiles/claude-base/Dockerfile` | Base — Claude Code + git only |
-| `claude-po-img` | `dockerfiles/claude-po/Dockerfile` | PO persona — base + `gh` CLI (no build tools) |
-| `claude-dev-img` | `dockerfiles/claude-code-dev/Dockerfile` | Dev and Test personas — adds Java 25, Maven, `gh` CLI |
+| `claude-base-img` | `dockerfiles/claude-base/Dockerfile` | Base - Claude Code + git only |
+| `claude-po-img` | `dockerfiles/claude-po/Dockerfile` | PO persona - base + `gh` CLI (no build tools) |
+| `claude-dev-img` | `dockerfiles/claude-code-dev/Dockerfile` | Dev and Test personas - adds Java 25, Maven, `gh` CLI |

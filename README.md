@@ -1,6 +1,6 @@
 # ai-dev-toolkit
 
-A reusable toolkit for multi-persona Claude Code agentic development workflows — Dockerfiles, compose templates, launcher scripts, and GitHub Actions orchestration for AI-augmented software teams.
+A reusable toolkit for multi-persona Claude Code agentic development workflows - Dockerfiles, compose templates, launcher scripts, and GitHub Actions orchestration for AI-augmented software teams.
 
 ## What This Is
 
@@ -8,21 +8,22 @@ This toolkit implements a **spec-driven, TDD-first, multi-persona agentic develo
 
 The result is a fully auditable, AI-augmented development process where:
 - Requirements are defined by a PO agent before any code is written
-- **Test goes first** — API contracts and failing tests are defined before Dev implements anything
-- Test and Dev iterate on the design before implementation begins
+- **Test goes first** - API contracts and failing tests are defined before Dev implements anything
+- Test and Dev iterate on the design before implementation begins, and settle defective tests directly
+- Test or Dev can ask PO about any acceptance criterion; PO answers on the story branch
 - Dev implements against the agreed design until all tests pass
 - Test performs final verification including regression analysis
-- A human architect reviews and approves all work before it merges to main
-- GitHub Actions orchestrates the entire chain automatically — no manual persona launching required
+- A human architect reviews and approves all work before it merges to main, and is otherwise pulled in only when a loop passes its limit
+- GitHub Actions orchestrates the entire chain automatically - no manual persona launching required
 
 ## Repository Structure
 
 ```
 ai-dev-toolkit/
 |- dockerfiles/
-|    |- claude-base/            # Base image — Claude Code + git only
-|    |- claude-po/              # PO image — base + gh CLI (no build tools)
-|    |- claude-code-dev/        # Dev/Test image — adds Java 25, Maven, gh CLI
+|    |- claude-base/            # Base image - Claude Code + git only
+|    |- claude-po/              # PO image - base + gh CLI (no build tools)
+|    |- claude-code-dev/        # Dev/Test image - adds Java 25, Maven, gh CLI
 |- personas/
 |    |- templates/
 |         |- po/CLAUDE.md       # PO persona system prompt template
@@ -33,13 +34,24 @@ ai-dev-toolkit/
 |    |- adr/ADR-NNN-title.md    # Architecture Decision Record skeleton
 |- compose/
 |    |- claude-persona.yml      # Docker Compose template for any persona
+|    |- pipeline-config.env     # Every pipeline knob (copied to .github/pipeline-config.env)
 |- scripts/
 |    |- launch-persona.sh          # Interactive launcher script template
 |    |- launch-persona-auto.sh     # Non-interactive launcher for GitHub Actions
-|    |- next-story-template.sh     # Queue manager — next eligible story from GitHub Issues
-|- workflows/
+|    |- next-story-template.sh     # Queue manager: next eligible story from GitHub Issues
+|    |- transition.sh              # Hand-off registry: routing, state checks, prompts, outcomes
+|    |- pipeline-config.sh         # Reads and validates pipeline-config.env
+|    |- persona-outcome-check.sh   # GitHub checks used to verify persona results
+|    |- escalate-to-brian.sh       # Opens, updates and auto-closes needs-brian issues
+|    |- check-prerequisites.sh     # Single rule for "is this story unblocked?"
+|    |- sync-blocked-labels.sh     # Keeps 'blocked' labels in step with prerequisites
+|    |- sync-project-board.sh      # Moves story issues to the right board column
+|- workflows/                      # Copy to .github/workflows/
+|    |- persona-run.yml                 # Reusable: launch, verify, escalate, clean up one persona
+|    |- pipeline-*.yml                  # Six thin event adapters
+|    |- sync-blocked-labels.yml         # Label reconciliation on issue events
+|    |- sync-project-board.yml          # Board sync on issue events
 |    |- ci.yml                          # Structure validation + backend/frontend build
-|    |- trigger-*.yml                   # Persona orchestration triggers (copy to .github/workflows/)
 |- docs/
 |    |- how-it-works.md                 # Architecture and workflow explanation
 |    |- new-project-setup.md            # Step-by-step checklist for new projects
@@ -55,34 +67,32 @@ See [docs/new-project-setup.md](docs/new-project-setup.md) for the full setup ch
 ## The Workflow
 
 ```
-PO (spec) → Test (contracts + failing tests) → Dev (design review) 
-→ iteration → Dev (implements) → Test (final review + regression) 
-→ Brian (approves + merges)
+PO (spec) -> Test (contracts + failing tests) -> Dev (design review)
+-> iteration -> Dev (implements) -> Test (final review + regression)
+-> Brian (approves + merges)
+
+Direct loops, no human: design feedback, defective tests (Dev <-> Test),
+acceptance-criteria questions (Test or Dev -> PO). Each has a limit; past it, a needs-brian issue.
 ```
 
-See [docs/agentic-workflow-diagram.md](docs/agentic-workflow-diagram.md) for the full visual automation diagram including all GitHub Actions triggers, iteration loops, escalation paths, and the Changes Requested feedback loop.
+See [docs/agentic-workflow-diagram.md](docs/agentic-workflow-diagram.md) for the full diagram, the hand-off table, escalation paths, and the human's PR review guide.
 
 ## GitHub Actions Orchestration
 
-The workflow is automated via nine trigger workflows plus `ci.yml`, running on a self-hosted runner. Templates live in `workflows/` — copy them to `.github/workflows/` and fill the placeholders.
+Every hand-off rule lives in `scripts/transition.sh` and every knob in `.github/pipeline-config.env`. Six thin adapter workflows turn GitHub events into a gate job on a GitHub-hosted runner; when a persona is needed, they call the reusable `persona-run.yml` (from `main`) on the self-hosted runner, which launches the persona, verifies its result on GitHub, and escalates if it is missing (ADR-003, ADR-005 in the reference project).
 
-| Trigger | Event | Wakes |
+| Adapter | Event | Hand-offs |
 |---|---|---|
-| `trigger-test-next-story.yml` | story spec pushed to main, or any PR merged | Test — Phase 1 (via queue manager) |
-| `trigger-dev-review.yml` | Test pushes test plan or revision | Dev — design review |
-| `trigger-test-revision.yml` | Dev pushes `dev-feedback-rN.md` | Test — revision |
-| `trigger-dev-implement.yml` | Dev pushes `story-NNN-agreed.md` | Dev — implementation |
-| `trigger-test-final-review.yml` | bot opens a PR targeting main | Test — final review |
-| `trigger-on-changes-requested.yml` | human submits a Changes Requested review | Test — write failing tests |
-| `trigger-dev-on-test-commit.yml` | Test pushes to `src/test/**` while PR is `changes_requested` | Dev — fix |
-| `trigger-test-on-dev-fix.yml` | Dev pushes to an open PR branch | Test — re-verification |
-| `trigger-po-on-changes-requested.yml` | human requests changes on a `specs/` PR | PO — revise specs |
-
-Every trigger supports `workflow_dispatch` for manual override from the GitHub Actions tab.
+| `pipeline-main-and-merge.yml` | story spec pushed to main, PR closed | queue, Test Phase 1 |
+| `pipeline-feature-push.yml` | push to `feature/story-*` | design loop, implementation, defective-test loop, PO loop, re-verification |
+| `pipeline-pr-opened.yml` | bot opens a story PR | Test final review |
+| `pipeline-test-verdict.yml` | Test's CHANGES_REQUESTED verdict comment | Dev fix |
+| `pipeline-review-submitted.yml` | human requests changes | Test Phase 4 (story PR), PO revision (specs PR) |
+| `pipeline-manual.yml` | manual dispatch | any hand-off, for recovery |
 
 ### Story queue
 
-Stories are tracked as GitHub Issues labeled `story`. `scripts/next-story-template.sh` (deployed as `scripts/next-story.sh`) returns the lowest-numbered open story whose prerequisites are all closed, enforces a single `in-progress` story at a time, and is run by `trigger-test-next-story.yml`. On PR merge the completed issue is closed and the next eligible story starts automatically.
+Stories are tracked as GitHub Issues labeled `story`. `scripts/next-story-template.sh` (deployed as `scripts/next-story.sh`) returns the lowest-numbered open story whose prerequisites were all closed as completed, enforces a single `in-progress` story at a time, and fails closed on API errors. On PR merge the completed issue is closed and the next eligible story starts automatically.
 
 ## Docker Images
 
@@ -106,8 +116,8 @@ docker build -t claude-dev-img ./dockerfiles/claude-code-dev
 
 ## In Use
 
-This toolkit currently powers the [StreamVault](https://github.com/birdman74/streamvault) project — a personal streaming library tracker built as a portfolio demonstration of agentic development practices.
+This toolkit currently powers the [StreamVault](https://github.com/birdman74/streamvault) project - a personal streaming library tracker built as a portfolio demonstration of agentic development practices.
 
 ## License
 
-MIT — use freely, adapt for your own projects.
+MIT - use freely, adapt for your own projects.
