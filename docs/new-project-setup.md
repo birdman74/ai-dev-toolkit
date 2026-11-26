@@ -21,7 +21,7 @@ the pitfalls documented in DEVLOG.md.
 ```
 - [ ] Set remote URL to SSH format - never HTTPS:
 ```bash
-git remote set-url origin git@github.com:birdman74/<repo>.git
+git remote set-url origin git@github.com:<your-github-username>/<repo>.git
 ```
 
 **Why SSH remote matters**: persona containers authenticate via `GIT_SSH_COMMAND` using a deploy key. If the remote is HTTPS, pushes from persona containers will fail silently or require credential workarounds.
@@ -164,6 +164,14 @@ mkdir -p .claude/personas/po .claude/personas/dev .claude/personas/test
 - Create `CLAUDE.md` at repo root with project-wide context: stack, coding
   conventions, git workflow, per-persona git identities, and the STATUS.md
   update protocol.
+- Every persona container loads this file next to its own persona `CLAUDE.md`,
+  so anything it says about the workflow must match the persona files exactly
+  (Test goes first, then Dev's design review, then implementation). A stale
+  overview here contradicts the personas on every run. Keep it to a short
+  overview and leave the details to the persona files.
+- List only tools the project actually uses in its stack table; record
+  planned-but-unused tools as deferred, with a backlog entry saying what would
+  trigger them.
 
 ### CONTRIBUTING.md
 
@@ -375,6 +383,21 @@ exit
 !ssh -T git@github.com  # should authenticate via deploy key
 exit
 ```
+
+Then verify the pipeline itself, from the project root:
+
+```bash
+# 1. The config parses and every value is valid (prints every key, exits 0)
+bash scripts/pipeline-config.sh
+
+# 2. Each automated launcher runs headless and cleans up its container
+#    (prints ok, exit=0, and docker ps lists nothing)
+~/bin/<project>-po-auto.sh "Reply with the single word ok and do nothing else."; echo "exit=$?"; docker ps -a --filter name=claude-<project>-po
+```
+
+3. Push a commit of your own to a throwaway `feature/story-000-pipeline-check` branch. In Actions, **Pipeline - Feature Branch Push** should run green with `SKIP: head commit by <you>, not a persona`, and its persona job should be skipped. That proves the gate runs from `main`, reads the config, and reaches the API with the bot token. Delete the branch afterwards.
+4. Run **Sync Project Board Status** with the issue number blank and **Dry run** checked. It should list every story issue with OK, MOVE or ADD and end with 0 failures, which proves `PROJECT_BOARD_GH_TOKEN` and the board names in the config.
+5. Run **Sync Blocked Labels** with **Dry run** checked. It should end with 0 failures, which proves `QUEUE_MANAGER_GH_TOKEN`.
 
 ---
 

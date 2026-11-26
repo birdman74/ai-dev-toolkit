@@ -585,7 +585,7 @@ answers in `impl-feedback-response-rN.md`; Test or Dev asks PO in
 amending that story's acceptance criteria if needed (Test's verdict lists every spec
 change for Brian). `needs-brian` issues now say exactly which Manual Dispatch resumes
 the pipeline and close themselves when the story moves again. The core was mock-tested
-with 65 scenarios against a stateful `gh` mock before it went live.
+with 66 scenarios against a stateful `gh` mock before it went live.
 
 ### Persona Containers
 The `STREAMVAULT_BOT_GH_TOKEN` warning in every persona launch turned out to be a

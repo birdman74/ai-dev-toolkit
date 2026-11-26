@@ -32,9 +32,9 @@ ai-dev-toolkit/
 |- templates/
 |    |- CONTRIBUTING.md         # Project conventions template (copied to repo root)
 |    |- adr/ADR-NNN-title.md    # Architecture Decision Record skeleton
+|    |- pipeline-config.env     # Every pipeline knob (copied to .github/pipeline-config.env)
 |- compose/
 |    |- claude-persona.yml      # Docker Compose template for any persona
-|    |- pipeline-config.env     # Every pipeline knob (copied to .github/pipeline-config.env)
 |- scripts/
 |    |- launch-persona.sh          # Interactive launcher script template
 |    |- launch-persona-auto.sh     # Non-interactive launcher for GitHub Actions
